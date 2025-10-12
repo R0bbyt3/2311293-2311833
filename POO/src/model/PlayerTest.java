@@ -5,17 +5,19 @@ import static org.junit.Assert.*;
 import org.junit.Test;
 
 public class PlayerTest {
+	
+	private static final int DEFAULT_TIMEOUT = 2000;
 
-	@Test
+	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testCreditAndDebit() {
 		Player p = new Player("p1", "Alice", "RED", 100);
 		p.credit(50);
-		assertEquals(150, p.getMoney());
+		assertEquals("saldo após crédito", 150, p.getMoney());
 		p.debit(40);
-		assertEquals(110, p.getMoney());
+		assertEquals("saldo após débito", 110, p.getMoney());
 	}
 
-	@Test
+	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testJailEnterLeave() {
 		Player p = new Player("p1", "Alice", "RED", 100);
 		assertFalse(p.isInJail());
@@ -25,24 +27,25 @@ public class PlayerTest {
 		assertFalse(p.isInJail());
 	}
 
-	@Test
+	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testPropertyManagement() {
 		Player p = new Player("p1", "Alice", "RED", 100);
 		int[] rents = new int[] {0,10,20,30,40,50};
 		StreetOwnableSquare s = new StreetOwnableSquare(0, "Rua 0", "R0", 200, rents, 100);
 		s.setOwner(p);
 		p.addProperty(s);
-		assertTrue(p.getProperties().contains(s));
+		assertTrue("propriedade deve constar na lista do jogador", p.getProperties().contains(s));
 		p.removeProperty(s);
-		assertFalse(p.getProperties().contains(s));
+		assertFalse("propriedade não deve permanecer na lista do jogador", p.getProperties().contains(s));
 	}
 
-	@Test
+	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testBankruptcyFlag() {
 		Player p = new Player("p1", "Alice", "RED", 0);
-		assertTrue(p.isAlive());
+		assertTrue("jogador nasce vivo", p.isAlive());
 		p.setBankrupt();
-		assertTrue(p.isBankrupt());
-		assertFalse(p.isAlive());
+		assertTrue("flag de falência deve ser verdadeira", p.isBankrupt());
+        assertFalse("jogador falido não está vivo", p.isAlive());
+
 	}
 }

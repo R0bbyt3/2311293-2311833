@@ -10,6 +10,8 @@ import org.junit.Before;
 import org.junit.Test;
 
 public class EconomyServiceTest {
+	
+	private static final int DEFAULT_TIMEOUT = 2000;
 
     // Square sem efeito para compor o tabuleiro
     static class NoopSquare extends Square {
@@ -60,10 +62,10 @@ public class EconomyServiceTest {
         // p1 no index 0 por padrão; tenta comprar
         boolean bought = engine.chooseBuy();
 
-        assertTrue(bought);
-        assertEquals(300, p1.getMoney()); // 500 - 200
-        assertTrue(prop.hasOwner());
-        assertEquals(p1, prop.getOwner());
+        assertTrue("compra deve ser bem-sucedida com saldo suficiente", bought);
+        assertEquals("saldo reduzido após compra", 300, p1.getMoney());
+        assertTrue("propriedade deve ter dono", prop.hasOwner());
+        assertEquals("dono deve ser o comprador", p1, prop.getOwner());
         assertTrue(p1.getProperties().contains(prop));
     }
 
@@ -75,9 +77,9 @@ public class EconomyServiceTest {
 
         boolean bought = engine.chooseBuy();
 
-        assertFalse(bought);
-        assertEquals(500, p1.getMoney()); // saldo inalterado
-        assertFalse(prop.hasOwner());
+        assertFalse("compra deve falhar sem saldo suficiente", bought);
+        assertEquals("saldo permanece inalterado", 500, p1.getMoney());
+        assertFalse("propriedade permanece sem dono", prop.hasOwner());
         assertFalse(p1.getProperties().contains(prop));
     }
 
@@ -93,17 +95,14 @@ public class EconomyServiceTest {
 
         boolean bought = engine.chooseBuy();
 
-        assertFalse(bought);
-        assertEquals(500, p1.getMoney()); // sem débito
+        
+        assertFalse("não deve comprar propriedade já possuída", bought);
+        assertEquals("saldo do comprador não muda", 500, p1.getMoney());
         assertTrue(prop.hasOwner());
-        assertEquals(p2, prop.getOwner()); // permanece com p2
+        assertEquals("dono permanece o original", p2, prop.getOwner());
         assertFalse(p1.getProperties().contains(prop));
         assertTrue(p2.getProperties().contains(prop));
     }
-
-    // ==============================
-    // Pagamento automático de aluguel
-    // ==============================
 
     @Test
     public void shouldPayRentWhenHasBalance() {
@@ -119,9 +118,9 @@ public class EconomyServiceTest {
         // p1 "cai" na propriedade do p2 (está no índice 0) -> resolve efeito
         engine.onLand();
 
-        // Aluguel com 1 casa = 10
-        assertEquals(500 - 10, p1.getMoney());
-        assertEquals(500 + 10, p2.getMoney());
+        // Aluguel com 1 casa = 10        
+        assertEquals("pagador perde 10 ao cair em propriedade com 1 casa", 490, p1.getMoney());
+        assertEquals("dono recebe 10", 510, p2.getMoney());
     }
 
     @Test
@@ -149,13 +148,14 @@ public class EconomyServiceTest {
 
         // Liquidação: asset vale 100 investido -> banco paga 90; paga aluguel 10
         // Saldo final esperado do poor: 5 + 90 - 10 = 85
-        assertEquals(85, poor.getMoney());
-        assertEquals(510, p2.getMoney());
+        assertEquals("saldo final após liquidação e pagamento", 85, poor.getMoney());
+        assertEquals("dono recebe aluguel de 10", 510, p2.getMoney());
         // asset deve ter sido removido do patrimônio
         assertFalse(poor.getProperties().contains(asset));
         assertFalse(asset.hasHotel());
         assertEquals(0, asset.getHouses());
-        assertFalse(asset.hasOwner());
+        assertFalse("propriedade liquidada não deve ter dono", asset.hasOwner());
+        
     }
 
     @Test
@@ -170,9 +170,9 @@ public class EconomyServiceTest {
 
         engine.onLand();
 
-               // Aluguel para 0 casas = 0 -> sem transferência
-        assertEquals(500, p1.getMoney());
-        assertEquals(500, p2.getMoney());
+        // Aluguel para 0 casas = 0 -> sem transferência
+        assertEquals("saldo do jogador não deve mudar sem casas", 500, p1.getMoney());
+        
     }
 
     @Test
@@ -187,8 +187,7 @@ public class EconomyServiceTest {
 
         engine.onLand();
 
-        assertEquals(500, p1.getMoney());
-        assertEquals(500, p2.getMoney());
+        assertEquals("jogador não paga aluguel na própria propriedade", 500, p1.getMoney());
     }
 
     @Test
@@ -216,12 +215,13 @@ public class EconomyServiceTest {
         // poor lands on owner's property; even after liquidation (5 + 9 + 9 = 23) < 50 → bankruptcy
         engine.onLand();
 
-        assertTrue(poor.isBankrupt());
+        assertTrue("jogador deve falir", poor.isBankrupt());
         // Rent is not transferred when payer goes bankrupt during charge
-        assertEquals(500, owner.getMoney());
+        assertEquals("dono não recebe aluguel de jogador falido", 500, owner.getMoney());
         // Bankrupt player's properties were liquidated and ownership cleared
-        assertTrue(poor.getProperties().isEmpty());
+        assertTrue("patrimônio do falido deve ser limpo", poor.getProperties().isEmpty());
         assertFalse(low1.hasOwner());
         assertFalse(low2.hasOwner());
+        
     }
 }

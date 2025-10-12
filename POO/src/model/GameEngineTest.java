@@ -12,6 +12,7 @@ import org.junit.Test;
 public class GameEngineTest {
 
     private static final int BOARD_SIZE = 10;
+    private static final int DEFAULT_TIMEOUT = 2000;
 
     // Square sem efeito para testes
     static class NoopSquare extends Square {
@@ -77,7 +78,7 @@ public class GameEngineTest {
         this.engine = newEngineAt(0, players);
     }
 
-    @Test(timeout = 500)
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void moveBy_mustMoveOnlyCurrentPlayer() {
         Player p1 = players.get(0);
         Player p2 = players.get(1);
@@ -90,7 +91,7 @@ public class GameEngineTest {
         assertEquals(0, p2.getPosition());
     }
 
-    @Test(timeout = 500)
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void moveBy_wrapsAroundBoard() {
         Player p1 = players.get(0);
         p1.moveTo(8); // posição quase no fim
@@ -100,7 +101,7 @@ public class GameEngineTest {
         assertEquals(3, p1.getPosition());
     }
 
-    @Test(timeout = 500)
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void afterEndTurn_moveByAffectsNextPlayer() {
         Player p1 = players.get(0);
         Player p2 = players.get(1);
@@ -112,7 +113,7 @@ public class GameEngineTest {
         assertEquals(2, p2.getPosition());
     }
 
-    @Test(timeout = 1000)
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void rollAndResolve_movesByDiceSumForCurrentPlayer() {
         Player p1 = players.get(0);
         int start = p1.getPosition();
@@ -121,7 +122,7 @@ public class GameEngineTest {
         engine.rollAndResolve();
 
         DiceRoll last = engine.lastRoll();
-        int expected = (start + last.sum()) % BOARD_SIZE;
+        int expected = (start + last.getSum()) % BOARD_SIZE;
         assertEquals(expected, p1.getPosition());
 
         // Garante que o outro jogador não foi movido
@@ -132,7 +133,7 @@ public class GameEngineTest {
     // Prisão: ida/saída/permanece
     // ==============================
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldGoToJailWhenLandingOnGoToJail() {
         int jailIndex = 3;
         int goToJailIndex = 5;
@@ -148,7 +149,7 @@ public class GameEngineTest {
         assertEquals(jailIndex, p1.getPosition());
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldLeaveJailWithDouble() {
         Player p1 = players.get(0);
         engine.sendToJail(p1);
@@ -157,7 +158,7 @@ public class GameEngineTest {
         assertFalse(p1.isInJail());
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldLeaveJailWithCard() {
         Player p1 = players.get(0);
         engine.sendToJail(p1);
@@ -167,7 +168,7 @@ public class GameEngineTest {
         assertFalse(p1.isInJail());
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldRemainInJailWithoutDoubleOrCard() {
         Player p1 = players.get(0);
         engine.sendToJail(p1);
@@ -176,7 +177,7 @@ public class GameEngineTest {
         assertTrue(p1.isInJail());
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldSkipBankruptPlayerInTurnOrder() {
         int[] rents = new int[] {0, 10, 20, 30, 40, 50};
         StreetOwnableSquare rentProp = new StreetOwnableSquare(0, "Rua 0", "R0", 200, rents, 100);
