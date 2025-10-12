@@ -123,7 +123,7 @@ final class EconomyService {
      * =========================================================== */
     boolean liquidateOrBankruptIfNeeded(final Player player, final int required) {
         Objects.requireNonNull(player, "player");
-
+        
         // Verifica se o jogador tem saldo suficiente
         boolean canPay = player.canAfford(required);
        
@@ -136,9 +136,10 @@ final class EconomyService {
         // Tenta vender propriedades para cobrir o valor faltante
         final List<OwnableSquare> owned = new ArrayList<>(player.getProperties());
         for (OwnableSquare prop : owned) {
+        	
             final int gross = prop.getTotalInvestment();
             final int received = (int) Math.floor(gross * BANK_BUYBACK_RATE);
-
+            
             // Banco recompra a propriedade
             bank.transfer(null, player, received);
 
@@ -147,7 +148,8 @@ final class EconomyService {
             prop.removeOwner(player); 
 
             missing -= received;
-            if (missing <= 0) return true;
+            if (missing <= 0) return true;  
+         
         }
 
         // Se ainda falta dinheiro → falência

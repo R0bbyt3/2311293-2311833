@@ -56,11 +56,4 @@ abstract class FactoryBase<T> {
         if (s == null || s.isBlank()) return 0;
         return Integer.parseInt(s.trim());
     }
-
-    // Extrai tabela de aluguel (ruas)
-    protected int[] parseRentTable(String[] parts, int startIdx, int length) {
-        int[] rents = new int[length];
-        for (int i = 0; i < length; i++) rents[i] = parseInt(parts[startIdx + i]);
-        return rents;
-    }
 }
