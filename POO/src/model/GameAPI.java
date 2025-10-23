@@ -93,6 +93,62 @@ public final class GameAPI {
         ensureStarted();
         this.currentPlayerIndex = engine.endTurn();
     }
+    
+    // ==== Métodos para obter informações do jogo ====
+    
+    /** Retorna o índice do jogador atual. */
+    public int getCurrentPlayerIndex() {
+        ensureStarted();
+        return currentPlayerIndex;
+    }
+    
+    /** Retorna o número total de jogadores. */
+    public int getNumberOfPlayers() {
+        ensureStarted();
+        return players.size();
+    }
+    
+    /** Retorna a posição de um jogador no tabuleiro. */
+    public int getPlayerPosition(int playerIndex) {
+        ensureStarted();
+        if (playerIndex < 0 || playerIndex >= players.size()) {
+            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
+        }
+        return players.get(playerIndex).getPosition();
+    }
+    
+    /** Retorna o nome de um jogador. */
+    public String getPlayerName(int playerIndex) {
+        ensureStarted();
+        if (playerIndex < 0 || playerIndex >= players.size()) {
+            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
+        }
+        return players.get(playerIndex).getName();
+    }
+    
+    /** Retorna o saldo de um jogador. */
+    public int getPlayerMoney(int playerIndex) {
+        ensureStarted();
+        if (playerIndex < 0 || playerIndex >= players.size()) {
+            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
+        }
+        return players.get(playerIndex).getMoney();
+    }
+    
+    /** Retorna se um jogador está na prisão. */
+    public boolean isPlayerInJail(int playerIndex) {
+        ensureStarted();
+        if (playerIndex < 0 || playerIndex >= players.size()) {
+            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
+        }
+        return players.get(playerIndex).isInJail();
+    }
+    
+    /** Retorna o último lance de dados (após rollAndResolve). */
+    public DiceRoll getLastDiceRoll() {
+        ensureStarted();
+        return engine.lastRoll();
+    }
 
     // ==== Auxiliares internas ====
 

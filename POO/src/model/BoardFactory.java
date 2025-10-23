@@ -39,7 +39,7 @@ final class BoardFactory extends FactoryBase<Square> {
         String type = p[1].trim().toUpperCase(Locale.ROOT);
         String name = p[2].trim();
         int price = parseInt(p[3]);
-        int[] rents = parseRentTable(p, 4, 9);
+        int[] rents = parseRentTable(p, 4, 6);
         int multiplier = parseInt(p[10]);
         int value = parseInt(p[11]);
 

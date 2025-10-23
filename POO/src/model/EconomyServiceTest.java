@@ -53,7 +53,7 @@ public class EconomyServiceTest {
         p2 = new Player("p2", "Bob", "BLUE", 500);
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldBuyWhenHasSufficientBalance() {
         StreetOwnableSquare prop = makeStreet(0, 200);
         Board board = makeBoardWithPropertyAt0(prop);
@@ -69,7 +69,7 @@ public class EconomyServiceTest {
         assertTrue(p1.getProperties().contains(prop));
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldNotBuyWhenInsufficientBalance() {
         StreetOwnableSquare prop = makeStreet(0, 800); // maior que o saldo do p1
         Board board = makeBoardWithPropertyAt0(prop);
@@ -83,7 +83,7 @@ public class EconomyServiceTest {
         assertFalse(p1.getProperties().contains(prop));
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldNotBuyPropertyWithExistingOwner() {
         StreetOwnableSquare prop = makeStreet(0, 200);
         // Define dono prévio como p2
@@ -104,7 +104,7 @@ public class EconomyServiceTest {
         assertTrue(p2.getProperties().contains(prop));
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldPayRentWhenHasBalance() {
         StreetOwnableSquare rentProp = makeStreet(0, 200);
         // Propriedade pertence ao p2 e tem 1 casa
@@ -123,7 +123,7 @@ public class EconomyServiceTest {
         assertEquals("dono recebe 10", 510, p2.getMoney());
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldLiquidateAssetsToPayRent() {
         // p1 com pouco dinheiro, mas com um bem para liquidar
         Player poor = new Player("pPoor", "Carol", "GREEN", 500);
@@ -158,7 +158,7 @@ public class EconomyServiceTest {
         
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldNotChargeRentWhenNoHouses() {
         StreetOwnableSquare rentProp = makeStreet(0, 200);
         rentProp.setOwner(p2);
@@ -175,7 +175,7 @@ public class EconomyServiceTest {
         
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldNotChargeRentOnOwnProperty() {
         StreetOwnableSquare ownProp = makeStreet(0, 200);
         ownProp.setOwner(p1);
@@ -190,7 +190,7 @@ public class EconomyServiceTest {
         assertEquals("jogador não paga aluguel na própria propriedade", 500, p1.getMoney());
     }
 
-    @Test
+    @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldGoBankruptWhenUnableToPayRent() {
         // Poor player with low cash and some assets, but liquidation is insufficient
         Player poor = new Player("pPoor", "Carol", "GREEN", 5);

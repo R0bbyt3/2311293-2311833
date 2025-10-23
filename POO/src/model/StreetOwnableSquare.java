@@ -91,12 +91,7 @@ final class StreetOwnableSquare extends OwnableSquare {
     // Efeito ao cair na casa. 
     @Override
     void onLand(final Player player, final GameEngine engine, final EconomyService economy) {
-    	if (!hasOwner() || this.getOwner() == player) {
-            return; // Livre ou própria propriedade, nada acontece
-        }
-    	
-    	int rentValue = calcRent(engine);
-    	
-        economy.transfer(player, this.getOwner(), rentValue);
+      	
+        economy.chargeRent(player, this, engine);
     }
 }

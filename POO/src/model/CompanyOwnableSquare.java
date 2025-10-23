@@ -37,7 +37,7 @@ final class CompanyOwnableSquare extends OwnableSquare {
         if (owner == null) return 0;
 
         final int lastSum = (engine != null && engine.lastRoll() != null)
-                ? engine.lastRoll().sum()
+                ? engine.lastRoll().getSum()
                 : 0;
         return multiplier * lastSum;
     }

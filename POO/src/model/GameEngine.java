@@ -106,7 +106,7 @@ final class GameEngine {
         }
 
         // Move o jogador
-        moveBy(roll.sum());
+        moveBy(roll.getSum());
 
         // Resolve efeito da casa
         onLand();
@@ -155,7 +155,7 @@ final class GameEngine {
         return lastRoll;
     }
 
-    DiceRoll lastRoll() { return lastRoll; }
+    public DiceRoll lastRoll() { return lastRoll; }
 
     EconomyService economy() { return economy; }
 }

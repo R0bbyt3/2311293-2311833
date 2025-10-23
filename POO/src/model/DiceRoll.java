@@ -54,11 +54,6 @@ public final class DiceRoll {
     public int getSum() { return sum; }
     public boolean isDouble() { return isDouble; }
 
-    // Métodos anteriores (compatibilidade no pacote)
-    int d1() { return d1; }
-    int d2() { return d2; }
-    int sum() { return sum; }
-
     @Override
     public String toString() {
         return "DiceRoll{d1=" + d1 + ", d2=" + d2 + ", sum=" + sum + ", double=" + isDouble + "}";
