@@ -150,6 +150,12 @@ public final class GameAPI {
         return engine.lastRoll();
     }
 
+    /** Retorna o índice do último jogador que rolou via rollAndResolve, ou -1 se nenhum. */
+    public int getLastRollerIndex() {
+        ensureStarted();
+        return engine.lastRollerIndex();
+    }
+
     // ==== Auxiliares internas ====
 
     private void ensureStarted() {

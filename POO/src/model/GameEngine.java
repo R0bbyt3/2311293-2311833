@@ -18,6 +18,7 @@ final class GameEngine {
 
     private int currentPlayerIndex;
     private DiceRoll lastRoll;
+    private int lastRollerIndex = -1;
 
     GameEngine(final Board board,
                final List<Player> players,
@@ -96,6 +97,9 @@ final class GameEngine {
     void rollAndResolve() {
         final Player p = currentPlayer();
 
+        // Registra quem iniciou a rodada (rolou os dados)
+        this.lastRollerIndex = currentPlayerIndex;
+
         // Rola os dados e guarda
         final DiceRoll roll = roll();
         applyJailRules(roll);
@@ -111,6 +115,9 @@ final class GameEngine {
         // Resolve efeito da casa
         onLand();
     }
+
+    /** Retorna o índice do último jogador que rolou com rollAndResolve, ou -1 se nenhum. */
+    int lastRollerIndex() { return lastRollerIndex; }
 
     /* ===========================================================
      * Compra da propriedade atual (se aplicável).

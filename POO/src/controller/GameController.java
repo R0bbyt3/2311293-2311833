@@ -169,8 +169,16 @@ public class GameController {
         }
         
         try {
-            // Obtém informações do jogador atual antes da jogada
+            // Bloqueia rolagem se o jogador atual foi quem rolou por último
+            int lastRoller = gameAPI.getLastRollerIndex();
             int currentPlayer = gameAPI.getCurrentPlayerIndex();
+            if (lastRoller == currentPlayer) {
+                String pname = gameAPI.getPlayerName(currentPlayer);
+                notifyGameMessage(" '" + pname + "' tried to roll again, but was the last to play. Action blocked.");
+                return;
+            }
+
+            // Obtém informações do jogador atual antes da jogada
             int positionBefore = gameAPI.getPlayerPosition(currentPlayer);
             
             // Executa a jogada através da API (move o jogador de verdade)

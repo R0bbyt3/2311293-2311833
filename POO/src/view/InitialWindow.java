@@ -57,7 +57,6 @@ public class InitialWindow extends JFrame {
         JLabel selectLabel = new JLabel("Number of players:");
         selectLabel.setFont(new Font("Arial", Font.PLAIN, 14));
         
-        // ComboBox com opções de 3 a 6 jogadores
         String[] options = {"3", "4", "5", "6"};
         playerCountCombo = new JComboBox<>(options);
         playerCountCombo.setSelectedIndex(1); // Padrão: 4 jogadores
