@@ -85,6 +85,11 @@ final class StreetOwnableSquare extends OwnableSquare {
     @Override
     int calcRent(final GameEngine engine) {
         int level = hasHotel ? 5 : houses;
+
+        if (level == 0) {
+            return (this.getOwner() == null) ? 0 : rentTable[0];
+        }
+
         return rentTable[level];
     }
 

@@ -10,11 +10,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-
 import model.GameAPI;
 import model.GameAPI.PlayerSpec;
 import model.GameAPI.PlayersConfig;
-
+import model.api.dto.Ownables;
+import model.api.dto.PlayerColor;
 /**
  * Controller principal da aplicação.
  * Gerencia o ciclo do jogo e coordena a comunicação entre Model e View.
@@ -25,16 +25,18 @@ public class GameController {
     private final List<GameObserver> observers;
     private boolean gameStarted;
     
+    // Mock de dados para testes
+    private Integer mockedDice1;
+    private Integer mockedDice2;
+    
     // Configurações padrão
     private static final int INITIAL_PLAYER_MONEY = 1500;
     private static final int INITIAL_BANK_CASH = 100000;
     private static final String BOARD_CSV = "assets/dados/board.csv";
     private static final String DECK_CSV = "assets/dados/deck.csv";
     
-    // Cores padrão para os jogadores
-    private static final String[] PLAYER_COLORS = {
-        "red", "blue", "green", "yellow", "purple", "orange"
-    };
+    // Cores padrão para os jogadores (definidas pelo enum PlayerColor)
+    private static final PlayerColor[] PLAYER_COLORS = PlayerColor.values();
     
     public GameController() {
         this.gameAPI = new GameAPI();
@@ -61,9 +63,9 @@ public class GameController {
     /**
      * Notifica todos os observadores sobre o início de um turno.
      */
-    private void notifyTurnStarted(int playerIndex, String playerName, String playerColor, int playerMoney) {
+    private void notifyTurnStarted(int playerIndex, String playerName, PlayerColor firstPlayerColor, int playerMoney) {
         for (GameObserver observer : observers) {
-            observer.onTurnStarted(playerIndex, playerName, playerColor, playerMoney);
+            observer.onTurnStarted(playerIndex, playerName, firstPlayerColor, playerMoney);
         }
     }
     
@@ -98,7 +100,7 @@ public class GameController {
      * Função auxiliar que notifica os observadores sobre a casa em que o jogador caiu
      * e executa ações específicas baseadas no tipo da casa.
      */
-    private void CallSquareNotification(int playerIndex, int squareIndex, String squareName, String squareType) {
+    private void callSquareNotification(int playerIndex, int squareIndex, String squareName, String squareType) {
         // Sempre notifica o pouso na casa
         notifySquareLanded(playerIndex, squareIndex, squareName, squareType);
 
@@ -120,11 +122,14 @@ public class GameController {
                 break;
             case "StreetOwnableSquare":
                 notifyGameMessage("Ownable property landed: " + squareName);
-                notifyStreetOwnable(playerIndex, squareName);
+       
+                var streetDto = gameAPI.getStreetOwnableInfo(squareIndex);
+                notifyStreetOwnable(playerIndex, squareName, streetDto);
                 break;
             case "CompanyOwnableSquare":
                 notifyGameMessage("Company landed: " + squareName);
-                notifyCompanyOwnable(playerIndex, squareName);
+                var companyDto = gameAPI.getCompanyOwnableInfo(squareIndex);
+                notifyCompanyOwnable(playerIndex, squareName, companyDto);
                 break;
             case "StartSquare":
                 notifyGameMessage("Start square landed: collecting rewards if any.");
@@ -140,15 +145,33 @@ public class GameController {
         }
     }
 
-    private void notifyStreetOwnable(int playerIndex, String streetName) {
+    private void notifyStreetOwnable(int playerIndex, String propertyName, Ownables.Street streetInfo) {
         for (GameObserver observer : observers) {
-            observer.onStreetOwnableLand(playerIndex, streetName);
+            observer.onStreetOwnableLand(playerIndex, propertyName, streetInfo);
         }
     }
 
-    private void notifyCompanyOwnable(int playerIndex, String companyName) {
+    private void notifyCompanyOwnable(int playerIndex, String companyName, Ownables.Company companyInfo) {
         for (GameObserver observer : observers) {
-            observer.onCompanyOwnableLand(playerIndex, companyName);
+            observer.onCompanyOwnableLand(playerIndex, companyName, companyInfo);
+        }
+    }
+
+    /**
+     * Notifica atualização de uma rua (compra/construção)
+     */
+    private void notifyStreetOwnableUpdate(int playerIndex, Ownables.Street streetInfo) {
+        for (GameObserver observer : observers) {
+            observer.onStreetOwnableUpdate(playerIndex, streetInfo);
+        }
+    }
+
+    /**
+     * Notifica atualização de uma companhia (compra/efeito)
+     */
+    private void notifyCompanyOwnableUpdate(int playerIndex, Ownables.Company companyInfo) {
+        for (GameObserver observer : observers) {
+            observer.onCompanyOwnableUpdate(playerIndex, companyInfo);
         }
     }
     
@@ -169,6 +192,9 @@ public class GameController {
             observer.onTurnEnded();
         }
     }
+
+    /** Notifica observadores que o dinheiro de um jogador mudou. */
+    // money notifications are now emitted via game messages or property updates
     
     /**
      * Inicia um novo jogo com o número especificado de jogadores.
@@ -182,10 +208,12 @@ public class GameController {
         // Cria lista de jogadores
         List<PlayerSpec> playerSpecs = new ArrayList<>();
         for (int i = 0; i < numberOfPlayers; i++) {
+            // pass the color as the expected string name to the API (lowercase)
+            PlayerColor color = PLAYER_COLORS[i];
             playerSpecs.add(new PlayerSpec(
                 "P" + (i + 1),
                 "Player " + (i + 1),
-                PLAYER_COLORS[i]
+                color
             ));
         }
         
@@ -216,7 +244,7 @@ public class GameController {
             // Notifica o primeiro jogador (inclui cor)
             int firstPlayer = gameAPI.getCurrentPlayerIndex();
             String firstPlayerName = gameAPI.getPlayerName(firstPlayer);
-            String firstPlayerColor = gameAPI.getPlayerColor(firstPlayer);
+            PlayerColor firstPlayerColor = gameAPI.getPlayerColor(firstPlayer);
             int firstPlayerMoney = gameAPI.getPlayerMoney(firstPlayer);
             notifyTurnStarted(firstPlayer, firstPlayerName, firstPlayerColor, firstPlayerMoney);
             
@@ -233,15 +261,11 @@ public class GameController {
      * Este é o método principal que coordena a jogada.
      */
     public void rollDiceAndPlay() {
-        if (!gameStarted) {
-            throw new IllegalStateException("O jogo ainda não foi iniciado");
-        }
+        ensureGameStarted();
         
         try {
-            // Bloqueia rolagem se o jogador atual foi quem rolou por último
-            int lastRoller = gameAPI.getLastRollerIndex();
             int currentPlayer = gameAPI.getCurrentPlayerIndex();
-            if (lastRoller == currentPlayer) {
+            if (!gameAPI.isRollAllowed()) {
                 String pname = gameAPI.getPlayerName(currentPlayer);
                 notifyGameMessage(" '" + pname + "' tried to roll again, but was the last to play. Action blocked.");
                 return;
@@ -249,6 +273,13 @@ public class GameController {
 
             // Obtém informações do jogador atual antes da jogada
             int positionBefore = gameAPI.getPlayerPosition(currentPlayer);
+            
+            // Se há valores mockados, aplica-os ao GameAPI antes do roll
+            if (hasMockedDiceValues()) {
+                gameAPI.setMockedDiceValues(mockedDice1, mockedDice2);
+                // Limpa os valores após aplicá-los (single-use no controller também)
+                clearMockedDiceValues();
+            }
             
             // Executa a jogada através da API (move o jogador de verdade)
             gameAPI.rollAndResolve();
@@ -262,7 +293,6 @@ public class GameController {
             // Notifica sobre o lance de dados
             notifyDiceRolled(dice1, dice2, isDouble);
             
-            
             // Obtém a posição real após o movimento
             int positionAfter = gameAPI.getPlayerPosition(currentPlayer);
             
@@ -273,7 +303,7 @@ public class GameController {
             String squareName = gameAPI.getSquareName(positionAfter);
             String squareType = gameAPI.getSquareType(positionAfter);
             // Use helper to notify observers and perform type-specific actions
-            CallSquareNotification(currentPlayer, positionAfter, squareName, squareType);
+            callSquareNotification(currentPlayer, positionAfter, squareName, squareType);
 
 
         } catch (Exception e) {
@@ -286,9 +316,7 @@ public class GameController {
      * Finaliza o turno atual e passa para o próximo jogador.
      */
     public void endTurn() {
-        if (!gameStarted) {
-            throw new IllegalStateException("Game has not been started yet");
-        }
+        ensureGameStarted();
         
         try {
             // Finaliza o turno e obtém o próximo jogador
@@ -298,7 +326,7 @@ public class GameController {
             // Obtém informações do próximo jogador
             int nextPlayerIndex = gameAPI.getCurrentPlayerIndex();
             String nextPlayerName = gameAPI.getPlayerName(nextPlayerIndex);
-            String nextPlayerColor = gameAPI.getPlayerColor(nextPlayerIndex);
+            PlayerColor nextPlayerColor = gameAPI.getPlayerColor(nextPlayerIndex);
             int nextPlayerMoney = gameAPI.getPlayerMoney(nextPlayerIndex);
 
             notifyTurnStarted(nextPlayerIndex, nextPlayerName, nextPlayerColor, nextPlayerMoney);
@@ -318,9 +346,112 @@ public class GameController {
     }
 
     /**
+     * Garante que o jogo foi iniciado; lança IllegalStateException caso contrário.
+     */
+    private void ensureGameStarted() {
+        if (!gameStarted) {
+            throw new IllegalStateException("Game has not been started yet");
+        }
+    }
+
+    /**
      * Retorna a quantidade de dinheiro de um jogador (acesso de conveniência para a view).
      */
     public int getPlayerMoney(int playerIndex) {
         return gameAPI.getPlayerMoney(playerIndex);
+    }
+
+    /**
+     * Tenta comprar a propriedade onde o jogador atual está.
+     * Se não for possível, envia uma mensagem de debug explicando o motivo.
+     */
+    public void attemptBuy() {
+        ensureGameStarted();
+
+        try {
+            final int currentPlayer = gameAPI.getCurrentPlayerIndex();
+
+            if (!gameAPI.chooseBuy()) {
+                String reason = gameAPI.getBuyNotAllowedReason();
+                if (reason == null) reason = "Unknown reason";
+                notifyGameMessage("Buy blocked: " + reason);
+                return;
+            }
+
+            int pos = gameAPI.getPlayerPosition(currentPlayer);
+            String propName = gameAPI.getSquareName(pos);
+
+            notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " bought " + propName);
+
+            String squareType = gameAPI.getSquareType(pos);
+            // If it is a street ownable, notify an update (purchase) to the view without the "land" debug.
+            if (squareType != null && squareType.equals("StreetOwnableSquare")) {
+                Ownables.Street streetInfo = gameAPI.getStreetOwnableInfo(pos);
+                notifyStreetOwnableUpdate(currentPlayer, streetInfo);
+            } else {
+                Ownables.Company companyInfo = gameAPI.getCompanyOwnableInfo(pos);
+                notifyCompanyOwnableUpdate(currentPlayer,companyInfo);
+            }
+        
+            
+        } catch (Exception e) {
+            notifyGameMessage("Error while attempting buy: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Tenta construir (uma casa) na propriedade atual. 
+     * Emite debug se não for possível.
+     */
+    public void attemptBuild() {
+        ensureGameStarted();
+
+        try {
+            final int currentPlayer = gameAPI.getCurrentPlayerIndex();
+
+            if (!gameAPI.chooseBuild()) {
+                String reason = gameAPI.getBuildNotAllowedReason();
+                if (reason == null) reason = "Unknown reason";
+                notifyGameMessage("Build blocked: " + reason);
+                return;
+            }
+
+            int pos = gameAPI.getPlayerPosition(currentPlayer);
+            String propName = gameAPI.getSquareName(pos);
+            notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " built on " + propName);
+            Ownables.Street streetInfo = gameAPI.getStreetOwnableInfo(pos);
+            notifyStreetOwnableUpdate(currentPlayer, streetInfo);
+        } catch (Exception e) {
+            notifyGameMessage("Error while attempting build: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Define valores mockados para os dados (modo de teste).
+     * Quando definidos, o próximo rollDiceAndPlay usará estes valores.
+     */
+    public void setMockedDiceValues(int dice1, int dice2) {
+        if (dice1 < 1 || dice1 > 6 || dice2 < 1 || dice2 > 6) {
+            throw new IllegalArgumentException("Dice values must be between 1 and 6");
+        }
+        this.mockedDice1 = dice1;
+        this.mockedDice2 = dice2;
+    }
+    
+    /**
+     * Remove valores mockados dos dados (volta ao modo normal/aleatório).
+     */
+    public void clearMockedDiceValues() {
+        this.mockedDice1 = null;
+        this.mockedDice2 = null;
+    }
+    
+    /**
+     * Verifica se há valores mockados definidos.
+     */
+    private boolean hasMockedDiceValues() {
+        return mockedDice1 != null && mockedDice2 != null;
     }
 }

@@ -23,7 +23,7 @@ final class Bank {
      * ===========================================================
      */
     void transfer(final Player from, final Player to, final int amount) {
-        if (amount < 0) throw new IllegalArgumentException("amount deve ser >= 0");
+        if (amount < 0) throw new IllegalArgumentException("Amount deve ser >= 0");
 
         if (from == null && to == null) {
             throw new IllegalArgumentException("Pelo menos uma ponta deve ser Player.");

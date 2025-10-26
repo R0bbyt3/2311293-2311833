@@ -7,6 +7,9 @@ package view;
 
 import controller.GameController;
 import controller.GameObserver;
+import model.api.dto.Ownables;
+import model.api.dto.PlayerColor;
+import view.ui.PlayerColorAwt;
 
 import javax.swing.*;
 import java.awt.*;
@@ -33,6 +36,10 @@ public class GameWindow extends JFrame implements GameObserver {
     private JLabel diceLabel;
     private JLabel moneyLabel;
     private boolean logVisible = true;  // Estado do log
+    
+    // Campos para mock de dados (teste)
+    private JTextField dice1Field;
+    private JTextField dice2Field;
     
     public GameWindow(GameController controller, int numberOfPlayers) {
         this.controller = controller;
@@ -76,6 +83,7 @@ public class GameWindow extends JFrame implements GameObserver {
         infoPanel.setBackground(Color.WHITE);
         infoPanel.setBorder(BorderFactory.createTitledBorder("Current Turn"));
         infoPanel.setPreferredSize(new Dimension(230, 115));
+        infoPanel.setMaximumSize(new Dimension(230, 115));
 
         currentPlayerLabel = new JLabel("Player 1");
         currentPlayerLabel.setFont(new Font("Arial", Font.BOLD, 16));
@@ -85,17 +93,20 @@ public class GameWindow extends JFrame implements GameObserver {
         diceLabel.setFont(new Font("Arial", Font.PLAIN, 14));
         diceLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
-    moneyLabel = new JLabel("Money: -");
-    moneyLabel.setFont(new Font("Arial", Font.PLAIN, 14));
-    moneyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+	    moneyLabel = new JLabel("Money: -");
+	    moneyLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+	    moneyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
         infoPanel.add(Box.createVerticalStrut(10));
         infoPanel.add(currentPlayerLabel);
         infoPanel.add(Box.createVerticalStrut(10));
         infoPanel.add(diceLabel);
-    infoPanel.add(Box.createVerticalStrut(6));
-    infoPanel.add(moneyLabel);
+	    infoPanel.add(Box.createVerticalStrut(6));
+	    infoPanel.add(moneyLabel);
         infoPanel.add(Box.createVerticalStrut(10));
+        
+        // Painel de Mock de Dados (para testes)
+        JPanel diceTestPanel = createDiceTestPanel();
         
         // Botões de controle
         JPanel buttonPanel = new JPanel();
@@ -107,7 +118,38 @@ public class GameWindow extends JFrame implements GameObserver {
         rollButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
+                // Verifica se há valores mockados
+                Integer d1 = parseDiceValue(dice1Field.getText());
+                Integer d2 = parseDiceValue(dice2Field.getText());
+                
+                if (d1 != null && d2 != null) {
+                    // Modo de teste: força valores específicos
+                    controller.setMockedDiceValues(d1, d2);
+                    addToLog("[TEST MODE] Forcing dice: " + d1 + " and " + d2);
+                } else {
+                    // Modo normal: valores aleatórios
+                    controller.clearMockedDiceValues();
+                }
+                
                 controller.rollDiceAndPlay();
+            }
+        });
+
+        // Buy button (attempt purchase via controller)
+        JButton buyButton = createStyledButton("Buy", new Color(218, 165, 32));
+        buyButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controller.attemptBuy();
+            }
+        });
+
+        // Build button (attempt build via controller)
+        JButton buildButton = createStyledButton("Build", new Color(205, 92, 92));
+        buildButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controller.attemptBuild();
             }
         });
 
@@ -131,9 +173,13 @@ public class GameWindow extends JFrame implements GameObserver {
         });
         
         buttonPanel.add(Box.createVerticalStrut(10));
-        buttonPanel.add(rollButton);
-        buttonPanel.add(Box.createVerticalStrut(10));
-        buttonPanel.add(endTurnButton);
+	    buttonPanel.add(rollButton);
+	    buttonPanel.add(Box.createVerticalStrut(10));
+	    buttonPanel.add(buyButton);
+	    buttonPanel.add(Box.createVerticalStrut(10));
+	    buttonPanel.add(buildButton);
+	    buttonPanel.add(Box.createVerticalStrut(10));
+	    buttonPanel.add(endTurnButton);
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(toggleLogButton);
         buttonPanel.add(Box.createVerticalStrut(10));
@@ -143,12 +189,63 @@ public class GameWindow extends JFrame implements GameObserver {
         
         panel.add(infoPanel);
         panel.add(Box.createVerticalStrut(20));
+        panel.add(diceTestPanel);
+        panel.add(Box.createVerticalStrut(20));
         panel.add(buttonPanel);
         panel.add(Box.createVerticalStrut(20));
         panel.add(bottomPanel);
         panel.add(Box.createVerticalGlue());
         
         return panel;
+    }
+    
+    /**
+     * Cria o painel para mock/teste de dados.
+     * Permite ao testador forçar valores específicos nos dados.
+     */
+    private JPanel createDiceTestPanel() {
+        JPanel dicePanel = new JPanel();
+        dicePanel.setLayout(new BoxLayout(dicePanel, BoxLayout.Y_AXIS));
+        dicePanel.setBackground(Color.WHITE);
+        dicePanel.setBorder(BorderFactory.createTitledBorder("Dice Value"));
+        dicePanel.setPreferredSize(new Dimension(230, 100));
+        dicePanel.setMaximumSize(new Dimension(230, 100));
+
+        JLabel instructionLabel = new JLabel("Force dice values (1-6):");
+        instructionLabel.setFont(new Font("Arial", Font.PLAIN, 10));
+        instructionLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        JPanel fieldsPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 5));
+        fieldsPanel.setBackground(Color.WHITE);
+        
+        JLabel d1Label = new JLabel("D1:");
+        dice1Field = new JTextField(2);
+        dice1Field.setFont(new Font("Arial", Font.BOLD, 14));
+        dice1Field.setHorizontalAlignment(JTextField.CENTER);
+        
+        JLabel d2Label = new JLabel("D2:");
+        dice2Field = new JTextField(2);
+        dice2Field.setFont(new Font("Arial", Font.BOLD, 14));
+        dice2Field.setHorizontalAlignment(JTextField.CENTER);
+        
+        fieldsPanel.add(d1Label);
+        fieldsPanel.add(dice1Field);
+        fieldsPanel.add(d2Label);
+        fieldsPanel.add(dice2Field);
+        
+        JLabel statusLabel = new JLabel("(Empty = random)");
+        statusLabel.setFont(new Font("Arial", Font.ITALIC, 9));
+        statusLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        statusLabel.setForeground(Color.GRAY);
+        
+        dicePanel.add(Box.createVerticalStrut(5));
+        dicePanel.add(instructionLabel);
+        dicePanel.add(Box.createVerticalStrut(5));
+        dicePanel.add(fieldsPanel);
+        dicePanel.add(statusLabel);
+        dicePanel.add(Box.createVerticalStrut(5));
+        
+        return dicePanel;
     }
     
     /**
@@ -199,36 +296,18 @@ public class GameWindow extends JFrame implements GameObserver {
     // ========== Implementação de GameObserver ==========
     
     @Override
-    public void onTurnStarted(int playerIndex, String playerName, String playerColor, int playerMoney) {
+    public void onTurnStarted(int playerIndex, String playerName, PlayerColor playerColor, int playerMoney) {
         currentPlayerLabel.setText(playerName);
         addToLog("=== Turn of " + playerName + " ===");
         diceLabel.setText("Dice: -");
         moneyLabel.setText("Money: $" + playerMoney);
-        // Aplica cor do jogador ao texto (identificação visual)
+        // Cor do jogador
         if (playerColor != null) {
-            Color c = parseColor(playerColor);
+            Color c = PlayerColorAwt.toColor(playerColor);
             if (c != null) currentPlayerLabel.setForeground(c);
         }
     }
 
-    private Color parseColor(String colorStr) {
-        switch (colorStr.toLowerCase()) {
-            case "red": return Color.RED;
-            case "blue": return Color.BLUE;
-            case "green": return Color.GREEN;
-            case "yellow": return Color.YELLOW;
-            case "purple": return new Color(128, 0, 128);
-            case "orange": return new Color(255, 165, 0);
-            default:
-                // Try hex like #RRGGBB
-                try {
-                    return Color.decode(colorStr);
-                } catch (Exception ex) {
-                    return null;
-                }
-        }
-    }
-    
     @Override
     public void onDiceRolled(int dice1, int dice2, boolean isDouble) {
         String doubleText = isDouble ? " (DOUBLE!)" : "";
@@ -252,32 +331,48 @@ public class GameWindow extends JFrame implements GameObserver {
     public void onChanceSquareLand(int playerIndex, int cardIndex) {
         addToLog("Chance card drawn: index=" + cardIndex);
         boardPanel.setCard(cardIndex);
-        // Refresh player's money in the UI when a chance card is drawn
-        try {
-            int money = controller.getPlayerMoney(playerIndex);
-            if (moneyLabel != null) moneyLabel.setText("Money: " + money);
-        } catch (Exception ex) {
-            addToLog("Failed to refresh money: " + ex.getMessage());
-        }
+        handlePlayerMoneyUpdate(playerIndex);
     }
 
     @Override
-    public void onStreetOwnableLand(int playerIndex, String propertyName) {
+    public void onStreetOwnableLand(int playerIndex, String propertyName, Ownables.Street streetInfo) {
         addToLog("Street ownable landed: " + propertyName + " (player=" + playerIndex + ")");
         boardPanel.setPropertyInfo(propertyName, "street");
+        boardPanel.setStreetInfo(streetInfo);
     }
 
     @Override
-    public void onCompanyOwnableLand(int playerIndex, String companyName) {
+    public void onCompanyOwnableLand(int playerIndex, String companyName, Ownables.Company companyInfo) {
         addToLog("Company ownable landed: " + companyName + " (player=" + playerIndex + ")");
         boardPanel.setPropertyInfo(companyName, "company");
+        boardPanel.setCompanyInfo(companyInfo);
+    }
+    
+    @Override
+    public void onStreetOwnableUpdate(int playerIndex, Ownables.Street streetInfo) {
+        boardPanel.setStreetInfo(streetInfo);
+        handlePlayerMoneyUpdate(playerIndex);
+    }
+
+    @Override
+    public void onCompanyOwnableUpdate(int playerIndex, Ownables.Company companyInfo) {
+        boardPanel.setCompanyInfo(companyInfo);
+        handlePlayerMoneyUpdate(playerIndex);
+    }
+
+    /**
+     * Helper: centraliza a atualização do label de dinheiro quando receber
+     */
+    private void handlePlayerMoneyUpdate(int playerIndex) {
+        int money = controller.getPlayerMoney(playerIndex);
+        if (moneyLabel != null) moneyLabel.setText("Money: $" + money);
     }
     
     @Override
     public void onTurnEnded() {
         boardPanel.setCard(-1);
         boardPanel.setPropertyInfo(null, null);
-        if (moneyLabel != null) moneyLabel.setText("Money: -");
+        if (moneyLabel != null) moneyLabel.setText("Money: $-");
         addToLog("Turn ended.\n");
     }
     
@@ -285,4 +380,24 @@ public class GameWindow extends JFrame implements GameObserver {
     public void onGameMessage(String message) {
         addToLog(message);
     }
+    
+    /**
+     * Tenta fazer parse de um valor de dado do campo de texto.
+     * Retorna null se o campo estiver vazio ou inválido.
+     */
+    private Integer parseDiceValue(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            int value = Integer.parseInt(text.trim());
+            if (value >= 1 && value <= 6) {
+                return value;
+            }
+        } catch (NumberFormatException e) {
+            // Ignora erros de parse
+        }
+        return null;
+    }
+
 }

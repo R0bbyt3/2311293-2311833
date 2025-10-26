@@ -1,6 +1,7 @@
 package model;
 
 import static org.junit.Assert.*;
+import static model.api.dto.PlayerColor.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,8 +50,8 @@ public class EconomyServiceTest {
 
     @Before
     public void setUp() {
-        p1 = new Player("p1", "Alice", "RED", 500);
-        p2 = new Player("p2", "Bob", "BLUE", 500);
+        p1 = new Player("p1", "Alice", RED, 500);
+        p2 = new Player("p2", "Bob", BLUE, 500);
     }
 
     @Test(timeout = DEFAULT_TIMEOUT)
@@ -126,7 +127,7 @@ public class EconomyServiceTest {
     @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldLiquidateAssetsToPayRent() {
         // p1 com pouco dinheiro, mas com um bem para liquidar
-        Player poor = new Player("pPoor", "Carol", "GREEN", 500);
+        Player poor = new Player("pPoor", "Carol", GREEN, 500);
         poor.debit(495); // fica com 5
 
         // bem do p1 a ser liquidado (não precisa estar no tabuleiro)
@@ -193,7 +194,7 @@ public class EconomyServiceTest {
     @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldGoBankruptWhenUnableToPayRent() {
         // Poor player with low cash and some assets, but liquidation is insufficient
-        Player poor = new Player("pPoor", "Carol", "GREEN", 5);
+        Player poor = new Player("pPoor", "Carol", GREEN, 5);
 
         // Two low-value assets (buildCost small → liquidation small)
         int[] rents = new int[] {0, 10, 20, 30, 40, 50};
@@ -203,7 +204,7 @@ public class EconomyServiceTest {
         low2.setOwner(poor); poor.addProperty(low2);
 
         // Other player's property with hotel (rent = 50)
-        Player owner = new Player("pOwner", "Dave", "YELLOW", 500);
+        Player owner = new Player("pOwner", "Dave", YELLOW, 500);
         StreetOwnableSquare rentProp = makeStreet(0, 200);
         rentProp.setOwner(owner);
         owner.addProperty(rentProp);

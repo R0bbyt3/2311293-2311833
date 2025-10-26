@@ -18,6 +18,9 @@ final class CompanyOwnableSquare extends OwnableSquare {
             throw new IllegalArgumentException("multiplicador deve ser positivo");
         this.multiplier = multiplier;
     }
+
+    // Mostra o multiplicador usado para calcular o aluguel.
+    int getMultiplier() { return multiplier; }
     
     // Retorna o valor total investido pelo jogador (apenas preço da companhia). 
     int getTotalInvestment() {

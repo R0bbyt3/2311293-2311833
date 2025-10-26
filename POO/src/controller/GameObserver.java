@@ -5,6 +5,9 @@
 
 package controller;
 
+import model.api.dto.Ownables;
+import model.api.dto.PlayerColor;
+
 /**
  * Interface para objetos que observam mudanças no estado do jogo.
  * Implementa o padrão Observer para desacoplar Model da View.
@@ -16,7 +19,7 @@ public interface GameObserver {
      * @param playerIndex índice do jogador atual
      * @param playerName nome do jogador atual
      */
-    void onTurnStarted(int playerIndex, String playerName, String playerColor, int playerMoney);
+    void onTurnStarted(int playerIndex, String playerName, PlayerColor firstPlayerColor, int playerMoney);
     
     /**
      * Notifica que os dados foram lançados.
@@ -53,15 +56,31 @@ public interface GameObserver {
     /** Notifica que o jogador caiu em uma rua própria (nome da propriedade).
      * @param playerIndex índice do jogador
      * @param propertyName nome da propriedade
+     * @param streetInfo DTO com informações da rua
     */
-    void onStreetOwnableLand(int playerIndex, String propertyName);
+    void onStreetOwnableLand(int playerIndex, String propertyName, Ownables.Street streetInfo);
 
-    /** Notifica que o jogador caiu em uma companhia própria (nome da companhia).
+    /** Notifica que o jogador caiu em uma companhia própria (informações).
      * @param playerIndex índice do jogador
+     * @param companyInfo DTO com informações da companhia
      * @param companyName nome da companhia
     */
-    void onCompanyOwnableLand(int playerIndex, String companyName);
-    
+    void onCompanyOwnableLand(int playerIndex, String companyName, Ownables.Company companyInfo);
+
+    /**
+     * Notifica que houve uma atualização em uma rua (compra ou construção).
+     * @param playerIndex índice do jogador que realizou a ação (pode ser o dono)
+     * @param streetInfo DTO com informações atualizadas da rua
+     */
+    void onStreetOwnableUpdate(int playerIndex, Ownables.Street streetInfo);
+
+    /**
+     * Notifica que houve uma atualização em uma companhia (compra ou efeito).
+     * @param playerIndex índice do jogador que realizou a ação (pode ser o dono)
+     * @param companyInfo DTO com informações atualizadas da companhia
+     */
+    void onCompanyOwnableUpdate(int playerIndex, Ownables.Company companyInfo);
+
     /**
      * Notifica que o turno terminou.
      */
@@ -72,4 +91,6 @@ public interface GameObserver {
      * @param message mensagem a exibir
      */
     void onGameMessage(String message);
+
+
 }

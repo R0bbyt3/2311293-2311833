@@ -10,12 +10,14 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
+import model.api.dto.PlayerColor;
+
 final class Player {
 
     // --- Identidade/visual ---
     private final String id;
     private final String name;
-    private final String color;
+    private final PlayerColor color;
 
     // --- Estado econômico/posicional ---
     private int money;
@@ -29,7 +31,7 @@ final class Player {
     private final List<OwnableSquare> properties;
     private boolean alive;
 
-    Player(final String id, final String name, final String color, final int initialMoney) {
+    Player(final String id, final String name, final PlayerColor color, final int initialMoney) {
         this.id = Objects.requireNonNull(id, "id");
         this.name = Objects.requireNonNull(name, "name");
         this.color = Objects.requireNonNull(color, "color");
@@ -141,7 +143,7 @@ final class Player {
     String getName() { return name; }
 
     /** Cor do jogador. */
-    String getColor() { return color; }
+    PlayerColor getColor() { return color; }
 
     /** Lista imutável das propriedades. */
     List<OwnableSquare> getProperties() { return Collections.unmodifiableList(properties); }

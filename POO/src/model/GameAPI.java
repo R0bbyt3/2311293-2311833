@@ -7,6 +7,8 @@ package model;
 
 import java.nio.file.Path;
 import java.util.*;
+import model.api.dto.Ownables;
+import model.api.dto.PlayerColor;
 
 public final class GameAPI {
 
@@ -19,7 +21,6 @@ public final class GameAPI {
     /**
      * Inicia o jogo (boot do Model).
      * Cria regras, banco, dados, baralhos, tabuleiro, jogadores, economia e engine.
-     *
      * playersConfig configuração dos jogadores
      * boardCsvPath  caminho do CSV contendo o tabuleiro
      * deckCsvPaths  lista de caminhos para os CSVs de baralhos
@@ -74,7 +75,7 @@ public final class GameAPI {
     }
 
     /** Solicita compra da propriedade atual (se aplicável). */
-    public boolean chooseBuy() {
+    public boolean  chooseBuy() {
         ensureStarted();
         return engine.chooseBuy();
     }
@@ -140,14 +141,26 @@ public final class GameAPI {
         return new DiceData(vals[0], vals[1], vals[2] == 1);
     }
 
-    /** Retorna o índice do último jogador que rolou via rollAndResolve, ou -1 se nenhum. */
-    public int getLastRollerIndex() {
+    /** Retorna true se o jogador atual está autorizado a rolar os dados. */
+    public boolean isRollAllowed() {
         ensureStarted();
-        return engine.lastRollerIndex();
+        return engine.isRollAllowed();
+    }       
+    
+    /** Retorna string com motivo pelo qual a compra não é permitida, ou null se permitida. */
+    public String getBuyNotAllowedReason() {
+        ensureStarted();
+        return engine.buyNotAllowedReason();
+    }
+
+    /** Retorna string com motivo pelo qual a construção não é permitida, ou null se permitida. */
+    public String getBuildNotAllowedReason() {
+        ensureStarted();
+        return engine.buildNotAllowedReason();
     }
 
     /** Retorna a cor (string) de um jogador. */
-    public String getPlayerColor(int playerIndex) {
+    public PlayerColor getPlayerColor(int playerIndex) {
         ensureStarted();
         validatePlayerIndex(playerIndex);
         return engine.allPlayers().get(playerIndex).getColor();
@@ -175,6 +188,34 @@ public final class GameAPI {
     public String getLastLandedOwnableName() {
         ensureStarted();
         return engine.lastLandedOwnableName();
+    }
+
+    /** Retorna informações detalhadas de uma StreetOwnable no índice dado (ou null se não for Street). */
+    public Ownables.Street getStreetOwnableInfo(final int index) {
+        ensureStarted();
+        return engine.getStreetOwnableInfo(index);
+    }
+
+    /** Retorna informações detalhadas de uma CompanyOwnable no índice dado (ou null se não for Company). */
+    public Ownables.Company getCompanyOwnableInfo(final int index) {
+        ensureStarted();
+        return engine.getCompanyOwnableInfo(index);
+    }
+    
+    /**
+     * Define valores para o próximo lance de dados (modo de teste).
+     */
+    public void setMockedDiceValues(final int d1, final int d2) {
+        ensureStarted();
+        engine.setMockedDiceValues(d1, d2);
+    }
+    
+    /**
+     * Remove valores dos dados (volta ao modo normal/aleatório).
+     */
+    public void clearMockedDiceValues() {
+        ensureStarted();
+        engine.clearMockedDiceValues();
     }
 
     // ==== Auxiliares internas ====
@@ -212,7 +253,7 @@ public final class GameAPI {
     }
 
     /** Especificação mínima de um jogador. */
-    public record PlayerSpec(String id, String name, String color) {}
+    public record PlayerSpec(String id, String name, PlayerColor color) {}
 
     /** Retorna os valores do último lance de dados em um pequeno DTO. */
     public record DiceData(int d1, int d2, boolean isDouble) {}

@@ -15,7 +15,9 @@ import java.util.Locale;
 import java.util.Map;
 import javax.imageio.ImageIO;
 import javax.swing.*;
-
+import model.api.dto.Ownables;
+import model.api.dto.PlayerColor;
+import view.ui.PlayerColorAwt;
 /**
  * Painel customizado que renderiza o tabuleiro do Monopoly.
  * Utiliza Graphics2D para desenhar casas, jogadores e dados.
@@ -51,8 +53,10 @@ public class BoardPanel extends JPanel {
     // Propriedade/companhia atual a exibir pelo nome (null = nenhuma)
     private String propertyName = null;
     private String propertyType = null; // "street" ou "company"
-    // Cor da borda da caixa de informações da propriedade (configurável)
-    private Color propertyInfoBorderColor = new Color(0, 128, 0); // verde
+    
+    // Dados da propriedade atual (se houver)
+    private Ownables.Street currentStreetInfo = null;
+    private Ownables.Company currentCompanyInfo = null;
     
     // Cache de imagens
     private Map<String, BufferedImage> imageCache;
@@ -63,35 +67,18 @@ public class BoardPanel extends JPanel {
         
         // Inicializa posições dos jogadores (máximo 6)
         playerPositions = new int[6];
-        playerColors = new Color[] {
-            Color.RED,
-            Color.BLUE,
-            new Color(0, 128, 0), // Verde
-            Color.YELLOW,
-            new Color(128, 0, 128), // Roxo
-            Color.ORANGE
-        };
+        // Inicializa cores dos jogadores a partir do enum PlayerColor usando o adaptador da view
+        model.api.dto.PlayerColor[] pcs = model.api.dto.PlayerColor.values();
+        playerColors = new Color[Math.min(pcs.length, 6)];
+        for (int i = 0; i < playerColors.length; i++) {
+            playerColors[i] = view.ui.PlayerColorAwt.toColor(pcs[i]);
+        }
         
         // Inicializa cache de imagens
         imageCache = new HashMap<>();
         loadImages();
     }
 
-    /**
-     * Define qual carta deve ser exibida (index 0-based). -1 para não exibir.
-     */
-    public void setCard(int cardIndex) {
-        this.cardIndex = cardIndex;
-        repaint();
-    }
-
-    /** Define a propriedade/companhia atual a exibir (nome) e redesenha. */
-    public void setPropertyInfo(String name, String type) {
-        this.propertyName = name;
-        this.propertyType = type;
-        repaint();
-    }
-    
     /**
      * Carrega as imagens dos assets.
      */
@@ -176,6 +163,35 @@ public class BoardPanel extends JPanel {
         repaint();
     }
     
+    /**
+     * Define qual carta deve ser exibida (index 0-based). -1 para não exibir.
+     */
+    public void setCard(int cardIndex) {
+        this.cardIndex = cardIndex;
+        repaint();
+    }
+
+    /** Define a propriedade/companhia atual a exibir (nome) e redesenha. */
+    public void setPropertyInfo(String name, String type) {
+        this.propertyName = name;
+        this.propertyType = type;
+        repaint();
+    }
+    
+    /** Define os dados da rua a exibir (limpa dados de companhia). */
+    public void setStreetInfo(Ownables.Street info) {
+        this.currentStreetInfo = info;
+        this.currentCompanyInfo = null; // garante exclusividade visual
+        repaint();
+    }
+
+    /** Define os dados da companhia a exibir (limpa dados de rua). */
+    public void setCompanyInfo(Ownables.Company info) {
+        this.currentCompanyInfo = info;
+        this.currentStreetInfo = null; // garante exclusividade visual
+        repaint();
+    }
+    
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
@@ -217,6 +233,13 @@ public class BoardPanel extends JPanel {
         if (imgProperty != null)
         {
         	drawCard(g2d, offsetX, offsetY, imgProperty);
+        	
+            if (currentStreetInfo != null) {
+                drawOwnableStreetInfo(g2d, offsetX, offsetY);
+            } else if (currentCompanyInfo != null) {
+                drawOwnableCompanyInfo(g2d, offsetX, offsetY);
+            }
+            
         }
     }
 
@@ -304,133 +327,120 @@ public class BoardPanel extends JPanel {
 	    g2d.drawImage(img, x, y, imgW, imgH, null);
 	}
 
+	/**
+	 * Desenha uma caixa de informações com título "Owned By" centralizado
+	 * e linhas "label : value" com valores alinhados à direita.
+	 */
+	private void drawOwnableBox(Graphics2D g2d, int offsetX, int offsetY, int boxWidth, int boxHeight, String ownedBy, PlayerColor borderColor, String[][] rows) {
+	    // Mesma ancoragem vertical usada antes (entre dados e carta)
+	    int boxCenterY = offsetY + (int) Math.round(BOARD_SIZE * 7.0 / 16.0) - 28;
+	    int x = offsetX + (BOARD_SIZE - boxWidth) / 2;
+	    int y = boxCenterY - boxHeight / 2;
 
-    /**
-     * Desenha a caixa branca de informações da propriedade entre os dados e a carta.
-     * Exibe linhas de texto estáticas conforme solicitado.
-     */
-    private void drawOwnableStreetInfo(Graphics2D g2d, int offsetX, int offsetY) {
-        // Calcula posição vertical entre o centro dos dados (1/4) e o centro da carta (~5/8)
-        // Subimos um pouco a caixa para ficar mais perto dos dados
-        int boxCenterY = offsetY + (int) Math.round(BOARD_SIZE * 7.0 / 16.0) - 28; // subir 28px
-        int boxWidth = 260;
-        int boxHeight = 110;
-        int x = offsetX + (BOARD_SIZE - boxWidth) / 2;
-        int y = boxCenterY - boxHeight / 2;
+	    // Caixa branca
+	    g2d.setColor(Color.WHITE);
+	    g2d.fillRoundRect(x, y, boxWidth, boxHeight, 10, 10);
 
-        // Caixa preenchida branca
-        g2d.setColor(Color.WHITE);
-        g2d.fillRoundRect(x, y, boxWidth, boxHeight, 10, 10);
-
-        // Borda com cor configurável
-        Stroke oldStroke = g2d.getStroke();
-        g2d.setStroke(new BasicStroke(3));
-        g2d.setColor(propertyInfoBorderColor);
-        g2d.drawRoundRect(x, y, boxWidth, boxHeight, 10, 10);
-        g2d.setStroke(oldStroke);
-
-        // Texto dentro da caixa
-        g2d.setColor(Color.BLACK);
-        g2d.setFont(new Font("Arial", Font.PLAIN, 14));
-        int padding = 12;
-        int tx = x + padding;
-        int maxValueX = x + boxWidth - padding; // right boundary for values
-        FontMetrics fm = g2d.getFontMetrics();
-
-        // 1) Owned By - center horizontally
-        String owned = "Owned By: None";
-        int ownedW = fm.stringWidth(owned);
-        int cx = x + (boxWidth - ownedW) / 2;
-        int ty = y + padding + fm.getAscent();
-        g2d.drawString(owned, cx, ty);
-
-        // 2) Price and Actual Rent - labels left, values right aligned
-        ty += fm.getHeight();
-        String priceLabel = "Price:";
-        String priceValue = "100$";
-        g2d.drawString(priceLabel, tx, ty);
-        int valW = fm.stringWidth(priceValue);
-        g2d.drawString(priceValue, maxValueX - valW, ty);
-
-        ty += fm.getHeight();
-        String rentLabel = "Actual Rent:";
-        String rentValue = "0$";
-        g2d.drawString(rentLabel, tx, ty);
-        valW = fm.stringWidth(rentValue);
-        g2d.drawString(rentValue, maxValueX - valW, ty);
-
-        // 3) Houses and Hotel - labels left, values right aligned (aligned like above)
-        ty += fm.getHeight();
-        String housesLabel = "Houses:";
-        String housesValue = "0";
-        g2d.drawString(housesLabel, tx, ty);
-        valW = fm.stringWidth(housesValue);
-        g2d.drawString(housesValue, maxValueX - valW, ty);
-
-        ty += fm.getHeight();
-        String hotelLabel = "Hotel:";
-        String hotelValue = "No";
-        g2d.drawString(hotelLabel, tx, ty);
-        valW = fm.stringWidth(hotelValue);
-        g2d.drawString(hotelValue, maxValueX - valW, ty);
-    }
-
-    /**
-     * Desenha uma segunda caixa menor por cima da caixa de propriedade.
-     * Mostra: Owned By, Price e Multiplier (textos estáticos por enquanto).
-     */
-    private void drawOwnableCompanyInfo(Graphics2D g2d, int offsetX, int offsetY) {
-        // Usa o mesmo centro horizontal e vertical do drawPropertyInfo, porém altura menor
-        int boxCenterY = offsetY + (int) Math.round(BOARD_SIZE * 7.0 / 16.0) - 28; // mesmo centro usado antes
-        int boxWidth = 220;
-        int boxHeight = 70; // menor altura
-        int x = offsetX + (BOARD_SIZE - boxWidth) / 2;
-        int y = boxCenterY - boxHeight / 2;
-
-        // Preenchimento branco
-        g2d.setColor(Color.WHITE);
-        g2d.fillRoundRect(x, y, boxWidth, boxHeight, 8, 8);
-
-        // Borda com mesma cor configurável
-        Stroke oldStroke = g2d.getStroke();
-        g2d.setStroke(new BasicStroke(3));
-        g2d.setColor(propertyInfoBorderColor);
-        g2d.drawRoundRect(x, y, boxWidth, boxHeight, 8, 8);
-        g2d.setStroke(oldStroke);
-
-        // Texto: Owned By (center), Price (left/value right), Multiplier (left/value right)
-        g2d.setColor(Color.BLACK);
-    // usa o mesmo tamanho de fonte que a caixa principal
-    g2d.setFont(new Font("Arial", Font.PLAIN, 14));
-        FontMetrics fm = g2d.getFontMetrics();
-        int padding = 10;
-        int tx = x + padding;
-        int maxValueX = x + boxWidth - padding;
-
-        // Owned By centered
-        String owned = "Owned By: None";
-        int ownedW = fm.stringWidth(owned);
-        int cx = x + (boxWidth - ownedW) / 2;
-        int ty = y + padding + fm.getAscent();
-        g2d.drawString(owned, cx, ty);
-
-        // Price
-        ty += fm.getHeight();
-        String priceLabel = "Price:";
-        String priceValue = "100$";
-        g2d.drawString(priceLabel, tx, ty);
-        int valW = fm.stringWidth(priceValue);
-        g2d.drawString(priceValue, maxValueX - valW, ty);
-
-        // Multiplier
-        ty += fm.getHeight();
-        String multLabel = "Multiplier:";
-        String multValue = "1x";
-        g2d.drawString(multLabel, tx, ty);
-        valW = fm.stringWidth(multValue);
-        g2d.drawString(multValue, maxValueX - valW, ty);
-    }
+	    // Borda
+	    Stroke oldStroke = g2d.getStroke();
+	    g2d.setStroke(new BasicStroke(3));
 	    
+	    if (borderColor != null) {
+	    	 g2d.setColor(PlayerColorAwt.toColor(borderColor));
+	    }else {
+	         g2d.setColor(Color.GRAY);
+	    }  
+	   
+	    g2d.drawRoundRect(x, y, boxWidth, boxHeight, 10, 10);
+	    g2d.setStroke(oldStroke);
+
+	    // Texto
+	    g2d.setColor(Color.BLACK);
+	    g2d.setFont(new Font("Arial", Font.PLAIN, 14));
+	    FontMetrics fm = g2d.getFontMetrics();
+
+	    int padding = 12;
+	    int tx = x + padding;
+	    int maxValueX = x + boxWidth - padding;
+
+	    // Owned By centralizado
+	    String owned = "Owned By: " + (ownedBy == null || ownedBy.isBlank() ? "None" : ownedBy);
+	    int ownedW = fm.stringWidth(owned);
+	    int cx = x + (boxWidth - ownedW) / 2;
+	    int ty = y + padding + fm.getAscent();
+	    g2d.drawString(owned, cx, ty);
+
+	    // Linhas label/value
+	    for (String[] row : rows) {
+	        ty += fm.getHeight();
+	        String label = row[0];
+	        String value = row[1];
+	        g2d.drawString(label, tx, ty);
+	        int valW = fm.stringWidth(value);
+	        g2d.drawString(value, maxValueX - valW, ty);
+	    }
+	}
+	
+	/** Desenha info de Street usando StreetOwnableInfo (DTO). */
+	private void drawOwnableStreetInfo(Graphics2D g2d, int offsetX, int offsetY) {
+	    if (currentStreetInfo == null) return;
+
+	    // Extrai dados do DTO
+	    var core = currentStreetInfo.core();
+	    
+	    String ownerName = "None";
+	    PlayerColor ownerColor = null;	   
+	    
+	    if ( core.owner() != null ){
+	        ownerName = core.owner().id();
+	        ownerColor = core.owner().color();
+	    }
+	    
+	    String price = core.propertyPrice() + "$";
+	    String rent = currentStreetInfo.propertyActualRent() + "$";
+	    String houses = String.valueOf(currentStreetInfo.propertyHouseNumber());
+	    String hotel = currentStreetInfo.propertyHasHotel() ? "Yes" : "No";
+
+	    // Linhas label/value
+	    String[][] rows = new String[][]{
+	        {"Price:", price},
+	        {"Actual Rent:", rent},
+	        {"Houses:", houses},
+	        {"Hotel:", hotel}
+	    };
+
+	    int boxWidth = 260;
+	    int boxHeight = 110;
+	    drawOwnableBox(g2d, offsetX, offsetY, boxWidth, boxHeight, ownerName, ownerColor, rows);
+	}
+
+	/** Desenha info de Company usando CompanyOwnableInfo (DTO). */
+	private void drawOwnableCompanyInfo(Graphics2D g2d, int offsetX, int offsetY) {
+	    if (currentCompanyInfo == null) return;
+
+	    var core = currentCompanyInfo.core();
+	    
+	    String ownerName = "None";
+	    PlayerColor ownerColor = null;	   
+	    
+	    if ( core.owner() != null ) {
+	        ownerName = core.owner().id();
+	        ownerColor = core.owner().color();
+	    }
+	    
+	    String price = core.propertyPrice() + "$";
+	    String mult = currentCompanyInfo.propertyMultiplier() + "x";
+
+	    String[][] rows = new String[][]{
+	        {"Price:", price},
+	        {"Multiplier:", mult}
+	    };
+
+	    int boxWidth = 220;
+	    int boxHeight = 70;
+	    drawOwnableBox(g2d, offsetX, offsetY, boxWidth, boxHeight, ownerName, ownerColor, rows);
+	}
+
     /**
      * Desenha o tabuleiro (40 casas em formato quadrado).
      */

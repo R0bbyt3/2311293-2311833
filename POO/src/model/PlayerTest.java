@@ -1,6 +1,7 @@
 package model;
 
 import static org.junit.Assert.*;
+import static model.api.dto.PlayerColor.*;
 
 import org.junit.Test;
 
@@ -10,7 +11,7 @@ public class PlayerTest {
 
 	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testCreditAndDebit() {
-		Player p = new Player("p1", "Alice", "RED", 100);
+		Player p = new Player("p1", "Alice", RED, 100);
 		p.credit(50);
 		assertEquals("saldo após crédito", 150, p.getMoney());
 		p.debit(40);
@@ -19,7 +20,7 @@ public class PlayerTest {
 
 	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testJailEnterLeave() {
-		Player p = new Player("p1", "Alice", "RED", 100);
+		Player p = new Player("p1", "Alice", RED, 100);
 		assertFalse(p.isInJail());
 		p.setInJail(true);
 		assertTrue(p.isInJail());
@@ -29,7 +30,7 @@ public class PlayerTest {
 
 	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testPropertyManagement() {
-		Player p = new Player("p1", "Alice", "RED", 100);
+		Player p = new Player("p1", "Alice", RED, 100);
 		int[] rents = new int[] {0,10,20,30,40,50};
 		StreetOwnableSquare s = new StreetOwnableSquare(0, "Rua 0", "R0", 200, rents, 100);
 		s.setOwner(p);
@@ -41,7 +42,7 @@ public class PlayerTest {
 
 	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testBankruptcyFlag() {
-		Player p = new Player("p1", "Alice", "RED", 0);
+		Player p = new Player("p1", "Alice", RED, 0);
 		assertTrue("jogador nasce vivo", p.isAlive());
 		p.setBankrupt();
 		assertTrue("flag de falência deve ser verdadeira", p.isBankrupt());

@@ -6,6 +6,9 @@ package model;
 
 import java.util.List;
 import java.util.Objects;
+import model.api.dto.OwnableInfo;
+import model.api.dto.Ownables;
+import model.api.dto.PlayerRef;
 
 
 
@@ -22,6 +25,11 @@ final class GameEngine {
     private int lastRollerIndex = -1;
     private int lastDrawedCardIndex = -1;
     private String lastLandedOwnableName = null;
+    private boolean hasBuiltThisTurn = false;
+    
+    // Mock de dados para testes
+    private Integer mockedDice1;
+    private Integer mockedDice2;
 
     GameEngine(final Board board,
                final List<Player> players,
@@ -38,6 +46,7 @@ final class GameEngine {
     // Início do turno: limpa estado do dado. 
     void beginTurn() {
         this.lastRoll = null;
+        this.hasBuiltThisTurn = false;
     }
 
     // Aplica regras de saída da prisão (dupla ou cartão). 
@@ -107,6 +116,11 @@ final class GameEngine {
      * Executa a jogada completa: rolar dados → aplicar prisão → mover → resolver casa.
      * =========================================================== */
     void rollAndResolve() {
+        // Regra: bloqueia tentativa de rolar caso o jogador atual seja quem rolou por último.
+        if (!isRollAllowed()) {
+            return;
+        }
+
         final Player p = currentPlayer();
 
         // Registra quem iniciou a rodada (rolou os dados)
@@ -127,10 +141,6 @@ final class GameEngine {
         // Resolve efeito da casa
         onLand();
     }
-
-    /** Retorna o índice do último jogador que rolou com rollAndResolve, ou -1 se nenhum. */
-    int lastRollerIndex() { return lastRollerIndex; }
-
     /** Retorna o índice da última carta retirada do baralho (ou -1). */
     int lastDrawedCardIndex() { return lastDrawedCardIndex; }
 
@@ -141,21 +151,45 @@ final class GameEngine {
      * Compra da propriedade atual (se aplicável).
      * =========================================================== */
     boolean chooseBuy() {
-    	final Player player = currentPlayer();
-        final StreetOwnableSquare property = (StreetOwnableSquare) board.squareAt(player.getPosition());
+        final Player player = currentPlayer();
         
-        return economy.attemptBuy(player, property);
+        final Square sq = board.squareAt(player.getPosition());
+        
+        if (!(sq instanceof OwnableSquare)) return false;
+        
+        final OwnableSquare property = (OwnableSquare) sq;
+        
+        final boolean hasPurchased = economy.attemptBuy(player, property);
+
+        if (hasPurchased) {
+            this.hasBuiltThisTurn = true;
+        }
+
+        return hasPurchased;
     }
 
     /* ===========================================================
      * Construção em propriedade do jogador.
      * =========================================================== */
     boolean chooseBuild() {
-    	final Player player = currentPlayer();
+        // Regra: apenas 1 construção/compra (casa) por jogador por turno
+        if (this.hasBuiltThisTurn) return false;
+
+        final Player player = currentPlayer();
+        
+        final Square sq = board.squareAt(player.getPosition());
+        
+        if (!(sq instanceof StreetOwnableSquare)) return false;
+        
         final StreetOwnableSquare property = (StreetOwnableSquare) board.squareAt(player.getPosition());
 
-        return economy.attemptBuild(player, property);
-   
+        final boolean built = economy.attemptBuild(player, property);
+
+        if (built) {
+            this.hasBuiltThisTurn = true;
+        }
+
+        return built;
     }
 
     /* ===========================================================
@@ -179,7 +213,16 @@ final class GameEngine {
     Player currentPlayer() { return players.get(currentPlayerIndex); }
 
     DiceRoll roll() {
-        this.lastRoll = new DiceRoll();
+        // Se há valores mockados, usa-os e limpa
+        if (mockedDice1 != null && mockedDice2 != null) {
+            this.lastRoll = new DiceRoll(mockedDice1, mockedDice2);
+            // Limpa os valores mockados após uso (single-use)
+            this.mockedDice1 = null;
+            this.mockedDice2 = null;
+        } else {
+            // Modo normal: aleatório
+            this.lastRoll = new DiceRoll();
+        }
         return lastRoll;
     }
 
@@ -190,7 +233,11 @@ final class GameEngine {
         return new int[] { lastRoll.getD1(), lastRoll.getD2(), lastRoll.isDouble() ? 1 : 0 };
     }
 
-    EconomyService economy() { return economy; }
+
+    /** Retorna se o jogador atual está autorizado a rolar os dados. */
+    boolean isRollAllowed() {
+        return this.lastRollerIndex != this.currentPlayerIndex;
+    }
 
     /** Retorna o nome da square no índice dado. */
     String getSquareName(final int index) {
@@ -199,6 +246,108 @@ final class GameEngine {
     /** Retorna o tipo (classe simples) da square no índice dado. */
     String getSquareType(final int index) {
         return board.squareAt(index).type();
+    }
+ 
+    // ============ SUPORTE A DEBUG ============
+    // ============ SUPORTE A DEBUG ============
+
+    /** Retorna uma mensagem explicando por que a compra NÃO é permitida, ou null se permitida. */
+    String buyNotAllowedReason() {
+        final Player player = currentPlayer();
+        final Square sq = board.squareAt(player.getPosition());
+        if (!(sq instanceof OwnableSquare)) return "Not a buyable property";
+        final OwnableSquare prop = (OwnableSquare) sq;
+        if (prop.hasOwner()) return "Property already owned";
+        if (!player.canAfford(prop.getPrice())) {
+            final int missing = player.howMuchMissing(prop.getPrice());
+            return "Insufficient funds: missing " + missing;
+        }
+        return null; // allowed
+    }
+
+    /** Retorna motivo pelo qual a construção NÃO é permitida, ou null se permitida. */
+    String buildNotAllowedReason() {
+        final Player player = currentPlayer();
+        final Square sq = board.squareAt(player.getPosition());
+        if (!(sq instanceof StreetOwnableSquare)) return "Not a street (cannot build)";
+        final StreetOwnableSquare street = (StreetOwnableSquare) sq;
+        if (!street.hasOwner() || street.getOwner() != player) return "You don't own this property";
+        if (this.hasBuiltThisTurn) return "Already built once this turn";
+        if (!street.canBuild()) return "Cannot build here (max houses/hotel)";
+        final int cost = street.getBuildCost();
+        if (!player.canAfford(cost)) {
+            final int missing = player.howMuchMissing(cost);
+            return "Insufficient funds: missing " + missing;
+        }
+        return null;
+    }
+    
+    // ============ MONTAGEM DTO ============
+    // ============ MONTAGEM DTO ============
+
+    private PlayerRef toPlayerRef(final Player owner) {
+    if (owner == null) return null;
+    return new PlayerRef(owner.getId(), owner.getColor());
+    }
+
+    /** Monta o Core comum (owner + price). */
+    private OwnableInfo.Core buildOwnableCore(final Player owner, final int price) {
+        final PlayerRef pref = toPlayerRef(owner);
+        return new OwnableInfo.Core(pref, price);
+    }
+
+    Ownables.Street getStreetOwnableInfo(final int index) {
+        final Square sq = board.squareAt(index);
+        if (!(sq instanceof StreetOwnableSquare)) return null;
+        final StreetOwnableSquare street = (StreetOwnableSquare) sq;
+
+        // Parte comum
+        final OwnableInfo.Core core = buildOwnableCore(street.getOwner(), street.getPrice());
+
+        // Parte específica (rua)
+        final int rent   = street.calcRent(this);
+        final int houses = street.getHouses();
+        final boolean hotel = street.hasHotel();
+
+        return new Ownables.Street(core, rent, houses, hotel);
+    }
+
+
+    Ownables.Company getCompanyOwnableInfo(final int index) {
+        final Square sq = board.squareAt(index);
+        if (!(sq instanceof CompanyOwnableSquare)) return null;
+        final CompanyOwnableSquare company = (CompanyOwnableSquare) sq;
+
+        // Parte comum
+        final OwnableInfo.Core core = buildOwnableCore(company.getOwner(), company.getPrice());
+
+        // Parte específica (companhia)
+        final int multiplier = company.getMultiplier();
+
+        return new Ownables.Company(core, multiplier);
+    }
+    
+    // ============ MOCK DE DADOS (TESTES) ============
+    // ============ MOCK DE DADOS (TESTES) ============
+
+    /**
+     * Define valores mockados para o próximo lance de dados.
+     * Valores serão consumidos no próximo roll() e então limpos.
+     */
+    void setMockedDiceValues(final int d1, final int d2) {
+        if (d1 < 1 || d1 > 6 || d2 < 1 || d2 > 6) {
+            throw new IllegalArgumentException("Dice values must be between 1 and 6");
+        }
+        this.mockedDice1 = d1;
+        this.mockedDice2 = d2;
+    }
+    
+    /**
+     * Remove valores mockados (volta ao modo normal/aleatório).
+     */
+    void clearMockedDiceValues() {
+        this.mockedDice1 = null;
+        this.mockedDice2 = null;
     }
 
 }

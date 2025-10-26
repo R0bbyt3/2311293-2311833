@@ -1,6 +1,7 @@
 package model;
 
 import static org.junit.Assert.*;
+import static model.api.dto.PlayerColor.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -46,8 +47,8 @@ public class StreetOwnableSquareTest {
 
     @Before
     public void setUp() {
-        p1 = new Player("p1", "Alice", "RED", 500);
-        p2 = new Player("p2", "Bob", "BLUE", 500);
+        p1 = new Player("p1", "Alice", RED, 500);
+        p2 = new Player("p2", "Bob", BLUE, 500);
     }
 
     @Test
@@ -105,7 +106,7 @@ public class StreetOwnableSquareTest {
     @Test
     public void shouldReachMaxHousesAndHotelAndThenBlock() {
         // p1 com saldo alto para várias construções
-        p1 = new Player("p1", "Alice", "RED", 2000);
+        p1 = new Player("p1", "Alice", RED, 2000);
         StreetOwnableSquare prop = makeStreet(0, 200, 100);
         prop.setOwner(p1);
         p1.addProperty(prop);

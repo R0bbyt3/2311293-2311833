@@ -1,6 +1,7 @@
 package model;
 
 import static org.junit.Assert.*;
+import static model.api.dto.PlayerColor.*;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -45,8 +46,8 @@ public class GameEngineTest {
     }
 
     private List<Player> makePlayers() {
-        Player p1 = new Player("p1", "Alice", "RED", 1500);
-        Player p2 = new Player("p2", "Bob", "BLUE", 1500);
+        Player p1 = new Player("p1", "Alice", RED, 1500);
+        Player p2 = new Player("p2", "Bob", BLUE, 1500);
         return Arrays.asList(p1, p2);
     }
 
@@ -182,9 +183,9 @@ public class GameEngineTest {
         int[] rents = new int[] {0, 10, 20, 30, 40, 50};
         StreetOwnableSquare rentProp = new StreetOwnableSquare(0, "Rua 0", "R0", 200, rents, 100);
 
-        Player poor = new Player("pPoor", "Carol", "GREEN", 0);
-        Player owner = new Player("pOwner", "Dave", "YELLOW", 500);
-        Player third = new Player("pThird", "Eve", "PURPLE", 500);
+        Player poor = new Player("pPoor", "Carol", GREEN, 0);
+        Player owner = new Player("pOwner", "Dave", YELLOW, 500);
+        Player third = new Player("pThird", "Eve", PURPLE, 500);
 
         rentProp.setOwner(owner);
         owner.addProperty(rentProp);

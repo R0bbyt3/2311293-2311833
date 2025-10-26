@@ -14,7 +14,7 @@ public class DiceRollTest {
 
     @Before
     public void setUp() {
-        roll = new DiceRoll(); // injeta seed se houver suporte
+        setRoll(new DiceRoll()); // injeta seed se houver suporte
     }
 
     @Test(timeout = DEFAULT_TIMEOUT)
@@ -64,4 +64,12 @@ public class DiceRollTest {
         DiceRoll r2 = new DiceRoll(123L);
         assertEquals("mesma seed deve gerar mesma soma", r1.getSum(), r2.getSum());
     }
+
+	public DiceRoll getRoll() {
+		return roll;
+	}
+
+	public void setRoll(DiceRoll roll) {
+		this.roll = roll;
+	}
 }
