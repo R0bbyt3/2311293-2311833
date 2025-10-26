@@ -6,6 +6,7 @@ public sealed interface OwnableInfo permits Ownables.Street, Ownables.Company {
     // Parte comum a qualquer ownable
     public static final record Core(
             PlayerRef owner,
+            String propertyName,
             int boardIndex,
             int propertyPrice,
             int propertySellValue 

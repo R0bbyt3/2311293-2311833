@@ -43,12 +43,12 @@ final class GameEngine {
         this.currentPlayerIndex = startIndex;
     }
 
-    // Início do turno: limpa estado do dado. 
+   // Início do turno: limpa estado do dado. 
     void beginTurn() {
         this.lastRoll = null;
         this.hasBuiltThisTurn = false;
     }
-
+    
     // Aplica regras de saída da prisão (dupla ou cartão). 
     void applyJailRules(final DiceRoll roll) {
         final Player p = currentPlayer();
@@ -103,14 +103,6 @@ final class GameEngine {
         player.setInJail(true);
         player.moveTo(board.jailIndex());
     }
-
-    // Final do turno: passa a vez para o próximo jogador ativo. 
-    void finishTurn() {
-        int n = players.size();
-        do {
-            currentPlayerIndex = (currentPlayerIndex + 1) % n;
-        } while (!players.get(currentPlayerIndex).isAlive());
-    }
     
     /* ===========================================================
      * Executa a jogada completa: rolar dados → aplicar prisão → mover → resolver casa.
@@ -120,7 +112,7 @@ final class GameEngine {
         if (!isRollAllowed()) {
             return;
         }
-
+        
         final Player p = currentPlayer();
 
         // Registra quem iniciou a rodada (rolou os dados)
@@ -206,7 +198,13 @@ final class GameEngine {
      * Finaliza o turno e retorna o índice do próximo jogador.
      * =========================================================== */
     int endTurn() {
-        finishTurn();
+        this.lastRoll = null;
+        this.hasBuiltThisTurn = false;
+
+    	int n = players.size();
+        do {
+            currentPlayerIndex = (currentPlayerIndex + 1) % n;
+        } while (!players.get(currentPlayerIndex).isAlive());
         return currentPlayerIndex;
     }
 
@@ -327,10 +325,10 @@ final class GameEngine {
     }
 
     /** Monta o Core comum (owner + price + sellValue). */
-    private OwnableInfo.Core buildOwnableCore(final Player owner, final int boardIndex, final int price, final int sellValue) {
+    private OwnableInfo.Core buildOwnableCore(final Player owner, final String propertyName, final int boardIndex, final int price, final int sellValue) {
         final PlayerRef pref = toPlayerRef(owner);
 
-        return new OwnableInfo.Core(pref, boardIndex, price, sellValue);
+        return new OwnableInfo.Core(pref, propertyName ,boardIndex, price, sellValue);
     }
 
     Ownables.Street getStreetOwnableInfo(final int index) {
@@ -340,7 +338,7 @@ final class GameEngine {
 
         // Parte comum
         final int sellValue = economy.evaluateSellValue(street);
-        final OwnableInfo.Core core = buildOwnableCore(street.getOwner(), street.index(), street.getPrice(), sellValue);
+        final OwnableInfo.Core core = buildOwnableCore(street.getOwner(), street.name(), street.index(), street.getPrice(), sellValue);
 
         // Parte específica (rua)
         final int rent   = street.calcRent(this);
@@ -358,7 +356,7 @@ final class GameEngine {
 
         // Parte comum
         final int sellValue = economy.evaluateSellValue(company);
-        final OwnableInfo.Core core = buildOwnableCore(company.getOwner(),  company.index(), company.getPrice(), sellValue);
+        final OwnableInfo.Core core = buildOwnableCore(company.getOwner(), company.name(), company.index(), company.getPrice(), sellValue);
 
         // Parte específica (companhia)
         final int multiplier = company.getMultiplier();

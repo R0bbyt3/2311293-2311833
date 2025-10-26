@@ -86,13 +86,15 @@ public final class PlayerPropertiesWindow extends JDialog {
         card.setMaximumSize(new java.awt.Dimension(Integer.MAX_VALUE, 160));
 
         card.setBackground(Color.WHITE);
-
+        
+        var core = it.core(); // info comum
+        
         // Cabeçalho
-        JLabel title = new JLabel("Property " + number);
+        JLabel title = new JLabel("[" + number + "] " + core.propertyName());
         title.setFont(title.getFont().deriveFont(Font.BOLD, 15f));
 
         // Subtítulo com dados comuns
-        var core = it.core();
+ 
         String ownerText = (core.owner() != null)
                 ? core.owner().id() + " (" + core.owner().color().name() + ")"
                 : "—";
