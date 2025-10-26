@@ -25,9 +25,10 @@ final class DeckFactory extends FactoryBase<Card> {
 
     @Override
     protected Card parseLine(String[] p) {
+        int id = parseInt(p[0]);
         String typeStr = p[1].trim().toUpperCase(Locale.ROOT);
         int value = parseInt(p[2]);
         Card.CardType type = Card.CardType.valueOf(typeStr);
-        return new Card(type, value);
+        return new Card(id, type, value);
     }
 }

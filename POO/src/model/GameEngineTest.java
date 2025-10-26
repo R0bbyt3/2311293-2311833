@@ -52,7 +52,7 @@ public class GameEngineTest {
 
     private Deck makeDeck() {
         // Deck mínimo não-vazio
-        return new Deck(Arrays.asList(new Card(Card.CardType.RECEIVE_BANK, 0)));
+        return new Deck(Arrays.asList(new Card(0, Card.CardType.RECEIVE_BANK, 0)));
     }
 
     private EconomyService makeEconomy() {
@@ -192,7 +192,7 @@ public class GameEngineTest {
 
         Board board = makeBoardWithPropertyAt0(rentProp, BOARD_SIZE, 3);
         List<Player> ps = Arrays.asList(poor, owner, third);
-        GameEngine localEngine = new GameEngine(board, ps, new Deck(Arrays.asList(new Card(Card.CardType.RECEIVE_BANK, 0))), new EconomyService(new Bank(1_000_000)), 0);
+        GameEngine localEngine = new GameEngine(board, ps, new Deck(Arrays.asList(new Card(0, Card.CardType.RECEIVE_BANK, 0))), new EconomyService(new Bank(1_000_000)), 0);
 
         localEngine.onLand();
         assertTrue(poor.isBankrupt());

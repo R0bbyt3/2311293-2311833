@@ -6,14 +6,14 @@
 
 package controller;
 
-import model.GameAPI;
-import model.GameAPI.PlayerSpec;
-import model.GameAPI.PlayersConfig;
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+
+import model.GameAPI;
+import model.GameAPI.PlayerSpec;
+import model.GameAPI.PlayersConfig;
 
 /**
  * Controller principal da aplicação.
@@ -61,9 +61,9 @@ public class GameController {
     /**
      * Notifica todos os observadores sobre o início de um turno.
      */
-    private void notifyTurnStarted(int playerIndex, String playerName) {
+    private void notifyTurnStarted(int playerIndex, String playerName, String playerColor, int playerMoney) {
         for (GameObserver observer : observers) {
-            observer.onTurnStarted(playerIndex, playerName);
+            observer.onTurnStarted(playerIndex, playerName, playerColor, playerMoney);
         }
     }
     
@@ -82,6 +82,73 @@ public class GameController {
     private void notifyPlayerMoved(int playerIndex, int fromPosition, int toPosition) {
         for (GameObserver observer : observers) {
             observer.onPlayerMoved(playerIndex, fromPosition, toPosition);
+        }
+    }
+
+    /**
+     * Notifica todos os observadores que um jogador caiu em uma casa específica.
+     */
+    private void notifySquareLanded(int playerIndex, int squareIndex, String squareName, String squareType) {
+        for (GameObserver observer : observers) {
+            observer.onSquareLanded(playerIndex, squareIndex, squareName, squareType);
+        }
+    }
+
+    /**
+     * Função auxiliar que notifica os observadores sobre a casa em que o jogador caiu
+     * e executa ações específicas baseadas no tipo da casa.
+     */
+    private void CallSquareNotification(int playerIndex, int squareIndex, String squareName, String squareType) {
+        // Sempre notifica o pouso na casa
+        notifySquareLanded(playerIndex, squareIndex, squareName, squareType);
+
+        // Açoes específicas baseadas no tipo da casa
+        switch (squareType) {
+            case "ChanceSquare":
+                notifyGameMessage("Drawing a chance card for " + gameAPI.getPlayerName(playerIndex));
+                int cardIdx = gameAPI.getLastDrawedCardIndex();
+                notifyChanceSquare(playerIndex, cardIdx);
+                break;
+            case "GoToJailSquare":
+                notifyGameMessage("GoToJailSquare landed: player will be sent to jail.");
+                break;
+            case "JailSquare":
+                notifyGameMessage("JailSquare: visiting jail.");
+                break;
+            case "MoneySquare":
+                notifyGameMessage("MoneySquare: money-related effect applies.");
+                break;
+            case "StreetOwnableSquare":
+                notifyGameMessage("Ownable property landed: " + squareName);
+                notifyStreetOwnable(playerIndex, squareName);
+                break;
+            case "CompanyOwnableSquare":
+                notifyGameMessage("Company landed: " + squareName);
+                notifyCompanyOwnable(playerIndex, squareName);
+                break;
+            case "StartSquare":
+                notifyGameMessage("Start square landed: collecting rewards if any.");
+                break;
+            default:
+                notifyGameMessage("Landed on square type: " + squareType);
+        }
+    }
+
+    private void notifyChanceSquare(int playerIndex, int cardIndex) {
+        for (GameObserver observer : observers) {
+            observer.onChanceSquareLand(playerIndex, cardIndex);
+        }
+    }
+
+    private void notifyStreetOwnable(int playerIndex, String streetName) {
+        for (GameObserver observer : observers) {
+            observer.onStreetOwnableLand(playerIndex, streetName);
+        }
+    }
+
+    private void notifyCompanyOwnable(int playerIndex, String companyName) {
+        for (GameObserver observer : observers) {
+            observer.onCompanyOwnableLand(playerIndex, companyName);
         }
     }
     
@@ -146,10 +213,12 @@ public class GameController {
             notifyGameMessage("Game started with " + numberOfPlayers + " players!");
             System.out.println("DEBUG: Initial player positions notified");
             
-            // Notifica o primeiro jogador
+            // Notifica o primeiro jogador (inclui cor)
             int firstPlayer = gameAPI.getCurrentPlayerIndex();
             String firstPlayerName = gameAPI.getPlayerName(firstPlayer);
-            notifyTurnStarted(firstPlayer, firstPlayerName);
+            String firstPlayerColor = gameAPI.getPlayerColor(firstPlayer);
+            int firstPlayerMoney = gameAPI.getPlayerMoney(firstPlayer);
+            notifyTurnStarted(firstPlayer, firstPlayerName, firstPlayerColor, firstPlayerMoney);
             
         } catch (Exception e) {
             System.err.println("ERROR starting game:");
@@ -184,25 +253,28 @@ public class GameController {
             // Executa a jogada através da API (move o jogador de verdade)
             gameAPI.rollAndResolve();
             
-            // Obtém os valores dos dados reais que foram lançados
-            model.DiceRoll lastRoll = gameAPI.getLastDiceRoll();
-            int dice1 = lastRoll.getD1();
-            int dice2 = lastRoll.getD2();
+            // Obtém os valores dos dados reais que foram lançados via GameAPI
+            GameAPI.DiceData lastRoll = gameAPI.getLastDiceData();
+            int dice1 = lastRoll.d1();
+            int dice2 = lastRoll.d2();
             boolean isDouble = lastRoll.isDouble();
             
             // Notifica sobre o lance de dados
             notifyDiceRolled(dice1, dice2, isDouble);
+            
             
             // Obtém a posição real após o movimento
             int positionAfter = gameAPI.getPlayerPosition(currentPlayer);
             
             // Notifica sobre o movimento real
             notifyPlayerMoved(currentPlayer, positionBefore, positionAfter);
-            
-            String playerName = gameAPI.getPlayerName(currentPlayer);
-            int steps = dice1 + dice2;
-            notifyGameMessage(playerName + " rolled " + dice1 + " + " + dice2 + " = " + steps);
-            notifyGameMessage(playerName + " moved from position " + positionBefore + " to " + positionAfter);
+
+            // Notifica sobre a casa em que o jogador caiu
+            String squareName = gameAPI.getSquareName(positionAfter);
+            String squareType = gameAPI.getSquareType(positionAfter);
+            // Use helper to notify observers and perform type-specific actions
+            CallSquareNotification(currentPlayer, positionAfter, squareName, squareType);
+
 
         } catch (Exception e) {
             notifyGameMessage("Error during turn: " + e.getMessage());
@@ -226,8 +298,10 @@ public class GameController {
             // Obtém informações do próximo jogador
             int nextPlayerIndex = gameAPI.getCurrentPlayerIndex();
             String nextPlayerName = gameAPI.getPlayerName(nextPlayerIndex);
-            
-            notifyTurnStarted(nextPlayerIndex, nextPlayerName);
+            String nextPlayerColor = gameAPI.getPlayerColor(nextPlayerIndex);
+            int nextPlayerMoney = gameAPI.getPlayerMoney(nextPlayerIndex);
+
+            notifyTurnStarted(nextPlayerIndex, nextPlayerName, nextPlayerColor, nextPlayerMoney);
             notifyGameMessage("Now it's " + nextPlayerName + "'s turn");
             
         } catch (Exception e) {
@@ -241,5 +315,12 @@ public class GameController {
      */
     public boolean isGameStarted() {
         return gameStarted;
+    }
+
+    /**
+     * Retorna a quantidade de dinheiro de um jogador (acesso de conveniência para a view).
+     */
+    public int getPlayerMoney(int playerIndex) {
+        return gameAPI.getPlayerMoney(playerIndex);
     }
 }

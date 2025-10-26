@@ -33,7 +33,7 @@ public class EconomyServiceTest {
     }
 
     private Deck makeDeck() {
-        return new Deck(Arrays.asList(new Card(Card.CardType.RECEIVE_BANK, 0)));
+        return new Deck(Arrays.asList(new Card(0, Card.CardType.RECEIVE_BANK, 0)));
     }
 
     private EconomyService makeEconomy() {

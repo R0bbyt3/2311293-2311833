@@ -23,5 +23,11 @@ abstract class Square {
 
     int index() { return index; }
     String name() { return name; }
+    
+    /**
+     * Retorna um identificador simples do tipo desta Square (classe concreta).
+     * Ex.: "ChanceSquare", "GoToJailSquare", "JailSquare", "MoneySquare", "StreetOwnableSquare", "StartSquare"
+     */
+    String type() { return this.getClass().getSimpleName(); }
 }
 

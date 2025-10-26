@@ -16,7 +16,7 @@ public interface GameObserver {
      * @param playerIndex índice do jogador atual
      * @param playerName nome do jogador atual
      */
-    void onTurnStarted(int playerIndex, String playerName);
+    void onTurnStarted(int playerIndex, String playerName, String playerColor, int playerMoney);
     
     /**
      * Notifica que os dados foram lançados.
@@ -39,8 +39,28 @@ public interface GameObserver {
      * @param playerIndex índice do jogador
      * @param squareIndex índice da casa
      * @param squareName nome da casa
+     * @param squareType tipo/classe da casa (ex.: ChanceSquare, GoToJailSquare, JailSquare, MoneySquare, StreetOwnableSquare, StartSquare)
      */
-    void onSquareLanded(int playerIndex, int squareIndex, String squareName);
+    void onSquareLanded(int playerIndex, int squareIndex, String squareName, String squareType);
+
+    /**
+     * Notifica que um jogador caiu em uma ChanceSquare com a carta sorteada.
+     * @param playerIndex índice do jogador
+     * @param cardIndex índice da carta sorteada (0-based)
+     */
+    void onChanceSquareLand(int playerIndex, int cardIndex);
+    
+    /** Notifica que o jogador caiu em uma rua própria (nome da propriedade).
+     * @param playerIndex índice do jogador
+     * @param propertyName nome da propriedade
+    */
+    void onStreetOwnableLand(int playerIndex, String propertyName);
+
+    /** Notifica que o jogador caiu em uma companhia própria (nome da companhia).
+     * @param playerIndex índice do jogador
+     * @param companyName nome da companhia
+    */
+    void onCompanyOwnableLand(int playerIndex, String companyName);
     
     /**
      * Notifica que o turno terminou.

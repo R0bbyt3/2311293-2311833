@@ -12,8 +12,6 @@ public final class GameAPI {
 
     // ==== Estado principal mantido pela fachada ====
     private GameEngine engine;
-    private List<Player> players;
-    private int currentPlayerIndex;
     private boolean started;
 
     // ==== API pública ====
@@ -47,22 +45,21 @@ public final class GameAPI {
 
         // 3) Jogadores
         validatePlayerCount(playersConfig);
-        this.players = new ArrayList<>(playersConfig.size());
+        List<Player> players = new ArrayList<>(playersConfig.size());
         for (PlayerSpec spec : playersConfig.players()) {
-            this.players.add(new Player(
+            players.add(new Player(
                 spec.id(),
                 spec.name(),
                 spec.color(),
                 initialPlayerMoney
             ));
         }
-        this.currentPlayerIndex = 0;
 
         // 4) Tabuleiro
         final Board board = BoardFactory.fromCSV(boardCsvPath);
 
         // 5) Engine
-        this.engine = new GameEngine(board, players, deck, economy, currentPlayerIndex);
+    this.engine = new GameEngine(board, players, deck, economy, 0);
 
         // 7) Boot concluído
         this.started = true;
@@ -91,7 +88,7 @@ public final class GameAPI {
     /** Encerra o turno atual e passa para o próximo jogador. */
     public void endTurn() {
         ensureStarted();
-        this.currentPlayerIndex = engine.endTurn();
+        engine.endTurn();
     }
     
     // ==== Métodos para obter informações do jogo ====
@@ -99,61 +96,85 @@ public final class GameAPI {
     /** Retorna o índice do jogador atual. */
     public int getCurrentPlayerIndex() {
         ensureStarted();
-        return currentPlayerIndex;
+        return engine.currentPlayerIndex();
     }
     
     /** Retorna o número total de jogadores. */
     public int getNumberOfPlayers() {
         ensureStarted();
-        return players.size();
+        return engine.allPlayers().size();
     }
     
     /** Retorna a posição de um jogador no tabuleiro. */
     public int getPlayerPosition(int playerIndex) {
         ensureStarted();
-        if (playerIndex < 0 || playerIndex >= players.size()) {
-            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
-        }
-        return players.get(playerIndex).getPosition();
+        validatePlayerIndex(playerIndex);
+        return engine.allPlayers().get(playerIndex).getPosition();
     }
     
     /** Retorna o nome de um jogador. */
     public String getPlayerName(int playerIndex) {
         ensureStarted();
-        if (playerIndex < 0 || playerIndex >= players.size()) {
-            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
-        }
-        return players.get(playerIndex).getName();
+        validatePlayerIndex(playerIndex);
+        return engine.allPlayers().get(playerIndex).getName();
     }
     
     /** Retorna o saldo de um jogador. */
     public int getPlayerMoney(int playerIndex) {
         ensureStarted();
-        if (playerIndex < 0 || playerIndex >= players.size()) {
-            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
-        }
-        return players.get(playerIndex).getMoney();
+        validatePlayerIndex(playerIndex);
+        return engine.allPlayers().get(playerIndex).getMoney();
     }
     
     /** Retorna se um jogador está na prisão. */
     public boolean isPlayerInJail(int playerIndex) {
         ensureStarted();
-        if (playerIndex < 0 || playerIndex >= players.size()) {
-            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
-        }
-        return players.get(playerIndex).isInJail();
+        validatePlayerIndex(playerIndex);
+        return engine.allPlayers().get(playerIndex).isInJail();
     }
     
-    /** Retorna o último lance de dados (após rollAndResolve). */
-    public DiceRoll getLastDiceRoll() {
+    /** Retorna os valores do último lance de dados (após rollAndResolve). */
+    public DiceData getLastDiceData() {
         ensureStarted();
-        return engine.lastRoll();
+        final int[] vals = engine.lastRollValues();
+        return new DiceData(vals[0], vals[1], vals[2] == 1);
     }
 
     /** Retorna o índice do último jogador que rolou via rollAndResolve, ou -1 se nenhum. */
     public int getLastRollerIndex() {
         ensureStarted();
         return engine.lastRollerIndex();
+    }
+
+    /** Retorna a cor (string) de um jogador. */
+    public String getPlayerColor(int playerIndex) {
+        ensureStarted();
+        validatePlayerIndex(playerIndex);
+        return engine.allPlayers().get(playerIndex).getColor();
+    }
+
+    /** Retorna o nome da square no índice fornecido. */
+    public String getSquareName(final int index) {
+        ensureStarted();
+        return engine.getSquareName(index);
+    }
+
+    /** Retorna o tipo (classe simples) da square no índice fornecido. */
+    public String getSquareType(final int index) {
+        ensureStarted();
+        return engine.getSquareType(index);
+    }
+
+    /** Retorna o índice da última carta retirada do baralho (ou -1). */
+    public int getLastDrawedCardIndex() {
+        ensureStarted();
+        return engine.lastDrawedCardIndex();
+    }
+
+    /** Retorna o nome da última propriedade/companhia em que um jogador caiu (ou null). */
+    public String getLastLandedOwnableName() {
+        ensureStarted();
+        return engine.lastLandedOwnableName();
     }
 
     // ==== Auxiliares internas ====
@@ -174,6 +195,14 @@ public final class GameAPI {
             throw new IllegalArgumentException("Quantidade de jogadores inválida (precisa ser entre 2 e 6).");
     }
 
+    /** Valida se o índice do jogador está no intervalo válido. */
+    private void validatePlayerIndex(final int playerIndex) {
+        final int n = engine.allPlayers().size();
+        if (playerIndex < 0 || playerIndex >= n) {
+            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
+        }
+    }
+
     
     // ==== Tipos auxiliares ====
 
@@ -184,4 +213,7 @@ public final class GameAPI {
 
     /** Especificação mínima de um jogador. */
     public record PlayerSpec(String id, String name, String color) {}
+
+    /** Retorna os valores do último lance de dados em um pequeno DTO. */
+    public record DiceData(int d1, int d2, boolean isDouble) {}
 }

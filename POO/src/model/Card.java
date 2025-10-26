@@ -8,6 +8,8 @@ import java.util.Objects;
 
 final class Card {
 
+    private final int id;
+
     enum CardType {
         PAY_BANK,       // paga ao banco
         RECEIVE_BANK,   // recebe do banco
@@ -17,13 +19,17 @@ final class Card {
         GET_OUT_OF_JAIL // ganha carta de saída livre
     }
 
+
     private final CardType type;
     private final int value; // usado nos tipos PAYMENT/ALL
 
-    Card(final CardType type, final int value) {
+    Card(final int id, final CardType type, final int value) {
+        this.id = id;
         this.type = Objects.requireNonNull(type, "type");
         this.value = value;
     }
+
+    int getId() { return id; }
 
     CardType type() { return type; }
     int value() { return value; }

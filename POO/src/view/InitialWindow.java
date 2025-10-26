@@ -100,16 +100,15 @@ public class InitialWindow extends JFrame {
         try {
             int numberOfPlayers = Integer.parseInt((String) playerCountCombo.getSelectedItem());
             
+            // Cria a janela principal (registra como observador) antes de iniciar o jogo
+            GameWindow gameWindow = new GameWindow(controller, numberOfPlayers);
+
             // Inicia o jogo através do controller
             controller.startNewGame(numberOfPlayers);
-            
-            // Fecha esta janela e abre a janela principal do jogo
+
+            // Fecha esta janela e mostra a janela principal
             this.dispose();
-            
-            SwingUtilities.invokeLater(() -> {
-                GameWindow gameWindow = new GameWindow(controller, numberOfPlayers);
-                gameWindow.setVisible(true);
-            });
+            gameWindow.setVisible(true);
             
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(

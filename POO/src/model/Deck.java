@@ -28,7 +28,7 @@ final class Deck {
     }
 
     void returnGetOutOfJailCardToBottom() {
-        cards.addLast(new Card(Card.CardType.GET_OUT_OF_JAIL, 0));
+        cards.addLast(new Card(0, Card.CardType.GET_OUT_OF_JAIL, 0));
     }
 
     void shuffle() {

@@ -8,7 +8,7 @@ import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 
-public final class DiceRoll {
+final class DiceRoll {
 
     private final int d1;
     private final int d2;

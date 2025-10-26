@@ -5,15 +5,16 @@
 
 package view;
 
-import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import javax.imageio.ImageIO;
 import java.io.File;
 import java.io.IOException;
+import java.text.Normalizer;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
-import java.awt.Rectangle;
+import javax.imageio.ImageIO;
+import javax.swing.*;
 
 /**
  * Painel customizado que renderiza o tabuleiro do Monopoly.
@@ -45,6 +46,13 @@ public class BoardPanel extends JPanel {
     // Valores dos dados
     private int dice1 = 0;
     private int dice2 = 0;
+    // Carta atual a exibir (index 0-based); -1 = nenhuma
+    private int cardIndex = -1;
+    // Propriedade/companhia atual a exibir pelo nome (null = nenhuma)
+    private String propertyName = null;
+    private String propertyType = null; // "street" ou "company"
+    // Cor da borda da caixa de informações da propriedade (configurável)
+    private Color propertyInfoBorderColor = new Color(0, 128, 0); // verde
     
     // Cache de imagens
     private Map<String, BufferedImage> imageCache;
@@ -67,6 +75,21 @@ public class BoardPanel extends JPanel {
         // Inicializa cache de imagens
         imageCache = new HashMap<>();
         loadImages();
+    }
+
+    /**
+     * Define qual carta deve ser exibida (index 0-based). -1 para não exibir.
+     */
+    public void setCard(int cardIndex) {
+        this.cardIndex = cardIndex;
+        repaint();
+    }
+
+    /** Define a propriedade/companhia atual a exibir (nome) e redesenha. */
+    public void setPropertyInfo(String name, String type) {
+        this.propertyName = name;
+        this.propertyType = type;
+        repaint();
     }
     
     /**
@@ -98,6 +121,15 @@ public class BoardPanel extends JPanel {
                 if (pinFile.exists()) {
                     imageCache.put("pin" + i, ImageIO.read(pinFile));
                     System.out.println("Pin " + i + " loaded");
+                }
+            }
+
+            // Carrega cartas de Sorte/Reves (1..30)
+            for (int i = 1; i <= 30; i++) {
+                File chanceFile = new File("src/view/assets/sorteReves/chance" + i + ".png");
+                if (chanceFile.exists()) {
+                    imageCache.put("chance" + i, ImageIO.read(chanceFile));
+                    System.out.println("Chance image loaded: " + "chance" + i);
                 }
             }
 
@@ -165,8 +197,240 @@ public class BoardPanel extends JPanel {
         
         // Desenha os dados
         drawDice(g2d, offsetX, offsetY);
+
+        // Se houver propriedade, desenha a caixa de informações entre os dados e a carta
+        if (propertyName != null && !propertyName.isBlank()) {
+            drawOwnableStreetInfo(g2d, offsetX, offsetY);
+            // Desenha uma segunda caixa menor por cima (overlay)
+            drawOwnableCompanyInfo(g2d, offsetX, offsetY);
+        }
+
+        // Desenha a carta da vez (se houver)
+        BufferedImage imgChance = getChanceCard();
+        if (imgChance != null)
+        {
+        	drawCard(g2d, offsetX, offsetY, imgChance);
+        }
+        
+        // Desenha a propriedade/companhia atual (se houver)
+        BufferedImage imgProperty = getPropertyCard();
+        if (imgProperty != null)
+        {
+        	drawCard(g2d, offsetX, offsetY, imgProperty);
+        }
     }
-    
+
+    /**
+     * Retorna a carta atual a exibir (se card != -1). 
+     */
+	private BufferedImage getChanceCard() {
+	    if (cardIndex == -1) return null;
+	
+	    String key = "chance" + (cardIndex + 1);
+	
+	    BufferedImage img = imageCache.get(key);
+
+	    if (img == null) {
+	    	
+		     throw new IllegalStateException("Imagem da carta não encontrada para '" + cardIndex + "'");
+		 }
+	    
+	    return img;
+	 }
+	
+	/** 
+	 * Retorna a imagem da propriedade/companhia atual a exibir (se property != null).
+	*/
+	private BufferedImage getPropertyCard() {
+	 if (propertyName == null || propertyType == null) return null;
+	
+	 // Normaliza o nome
+	 String normalized = propertyName.toLowerCase(Locale.ROOT); // Minúsculas
+	 normalized = Normalizer.normalize(normalized, Normalizer.Form.NFD).replaceAll("\\p{M}", "");  // Remove acentos
+	 normalized = normalized.replaceAll("\\s+", "_").replaceAll("[^a-z0-9_]", "");  // Substitui espaços por underscore e remove caracteres indesejados 
+	
+	 // Tenta cache usando a chave normalizada
+	 BufferedImage img = imageCache.get(normalized);
+	 
+     // Tenta disco (nomes exatos transformados)
+     if (img == null) {
+   
+         String[] paths;
+         if (propertyType.equals("street")) {
+             paths = new String[] { "src/view/assets/territorios/" + normalized + ".png" };
+         } else {
+             paths = new String[] { "src/view/assets/companhias/" + normalized + ".png" };
+         }
+        	
+		 for (String p : paths) {
+             try {
+                 File f = new File(p);
+                 if (f.exists()) {
+                     img = ImageIO.read(f);
+                     imageCache.put(normalized, img); // cacheia com a chave normalizada
+                     break;
+                 }
+             } catch (IOException ignore) { /* silencioso */ }
+         }
+     }
+	
+	
+	 if (img == null) {
+	
+	     throw new IllegalStateException("Imagem da propriedade não encontrada para '" + propertyName + "'");
+	 }
+	 
+	 return img;
+	 
+	}
+	
+	/** Desenha a imagem da carta de chance ou propriedade centralizada horizontalmente
+	 *  e posicionada verticalmente em y ≈ 5/8 do tabuleiro.
+	 */
+	private void drawCard(Graphics2D g2d, int offsetX, int offsetY, BufferedImage img) {
+	    int imgW = img.getWidth();
+	    int imgH = img.getHeight();
+
+	    int maxW = 200;
+	    if (imgW > maxW) {
+	        double scale = (double) maxW / imgW;
+	        imgW = maxW;
+	        imgH = (int) Math.round(imgH * scale);
+	    }
+
+	    int x = offsetX + (BOARD_SIZE - imgW) / 2;
+	    int y = offsetY + (int) Math.round(BOARD_SIZE * (2.0 / 3.0) - imgH / 2.0);
+        
+	    g2d.drawImage(img, x, y, imgW, imgH, null);
+	}
+
+
+    /**
+     * Desenha a caixa branca de informações da propriedade entre os dados e a carta.
+     * Exibe linhas de texto estáticas conforme solicitado.
+     */
+    private void drawOwnableStreetInfo(Graphics2D g2d, int offsetX, int offsetY) {
+        // Calcula posição vertical entre o centro dos dados (1/4) e o centro da carta (~5/8)
+        // Subimos um pouco a caixa para ficar mais perto dos dados
+        int boxCenterY = offsetY + (int) Math.round(BOARD_SIZE * 7.0 / 16.0) - 28; // subir 28px
+        int boxWidth = 260;
+        int boxHeight = 110;
+        int x = offsetX + (BOARD_SIZE - boxWidth) / 2;
+        int y = boxCenterY - boxHeight / 2;
+
+        // Caixa preenchida branca
+        g2d.setColor(Color.WHITE);
+        g2d.fillRoundRect(x, y, boxWidth, boxHeight, 10, 10);
+
+        // Borda com cor configurável
+        Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(3));
+        g2d.setColor(propertyInfoBorderColor);
+        g2d.drawRoundRect(x, y, boxWidth, boxHeight, 10, 10);
+        g2d.setStroke(oldStroke);
+
+        // Texto dentro da caixa
+        g2d.setColor(Color.BLACK);
+        g2d.setFont(new Font("Arial", Font.PLAIN, 14));
+        int padding = 12;
+        int tx = x + padding;
+        int maxValueX = x + boxWidth - padding; // right boundary for values
+        FontMetrics fm = g2d.getFontMetrics();
+
+        // 1) Owned By - center horizontally
+        String owned = "Owned By: None";
+        int ownedW = fm.stringWidth(owned);
+        int cx = x + (boxWidth - ownedW) / 2;
+        int ty = y + padding + fm.getAscent();
+        g2d.drawString(owned, cx, ty);
+
+        // 2) Price and Actual Rent - labels left, values right aligned
+        ty += fm.getHeight();
+        String priceLabel = "Price:";
+        String priceValue = "100$";
+        g2d.drawString(priceLabel, tx, ty);
+        int valW = fm.stringWidth(priceValue);
+        g2d.drawString(priceValue, maxValueX - valW, ty);
+
+        ty += fm.getHeight();
+        String rentLabel = "Actual Rent:";
+        String rentValue = "0$";
+        g2d.drawString(rentLabel, tx, ty);
+        valW = fm.stringWidth(rentValue);
+        g2d.drawString(rentValue, maxValueX - valW, ty);
+
+        // 3) Houses and Hotel - labels left, values right aligned (aligned like above)
+        ty += fm.getHeight();
+        String housesLabel = "Houses:";
+        String housesValue = "0";
+        g2d.drawString(housesLabel, tx, ty);
+        valW = fm.stringWidth(housesValue);
+        g2d.drawString(housesValue, maxValueX - valW, ty);
+
+        ty += fm.getHeight();
+        String hotelLabel = "Hotel:";
+        String hotelValue = "No";
+        g2d.drawString(hotelLabel, tx, ty);
+        valW = fm.stringWidth(hotelValue);
+        g2d.drawString(hotelValue, maxValueX - valW, ty);
+    }
+
+    /**
+     * Desenha uma segunda caixa menor por cima da caixa de propriedade.
+     * Mostra: Owned By, Price e Multiplier (textos estáticos por enquanto).
+     */
+    private void drawOwnableCompanyInfo(Graphics2D g2d, int offsetX, int offsetY) {
+        // Usa o mesmo centro horizontal e vertical do drawPropertyInfo, porém altura menor
+        int boxCenterY = offsetY + (int) Math.round(BOARD_SIZE * 7.0 / 16.0) - 28; // mesmo centro usado antes
+        int boxWidth = 220;
+        int boxHeight = 70; // menor altura
+        int x = offsetX + (BOARD_SIZE - boxWidth) / 2;
+        int y = boxCenterY - boxHeight / 2;
+
+        // Preenchimento branco
+        g2d.setColor(Color.WHITE);
+        g2d.fillRoundRect(x, y, boxWidth, boxHeight, 8, 8);
+
+        // Borda com mesma cor configurável
+        Stroke oldStroke = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(3));
+        g2d.setColor(propertyInfoBorderColor);
+        g2d.drawRoundRect(x, y, boxWidth, boxHeight, 8, 8);
+        g2d.setStroke(oldStroke);
+
+        // Texto: Owned By (center), Price (left/value right), Multiplier (left/value right)
+        g2d.setColor(Color.BLACK);
+    // usa o mesmo tamanho de fonte que a caixa principal
+    g2d.setFont(new Font("Arial", Font.PLAIN, 14));
+        FontMetrics fm = g2d.getFontMetrics();
+        int padding = 10;
+        int tx = x + padding;
+        int maxValueX = x + boxWidth - padding;
+
+        // Owned By centered
+        String owned = "Owned By: None";
+        int ownedW = fm.stringWidth(owned);
+        int cx = x + (boxWidth - ownedW) / 2;
+        int ty = y + padding + fm.getAscent();
+        g2d.drawString(owned, cx, ty);
+
+        // Price
+        ty += fm.getHeight();
+        String priceLabel = "Price:";
+        String priceValue = "100$";
+        g2d.drawString(priceLabel, tx, ty);
+        int valW = fm.stringWidth(priceValue);
+        g2d.drawString(priceValue, maxValueX - valW, ty);
+
+        // Multiplier
+        ty += fm.getHeight();
+        String multLabel = "Multiplier:";
+        String multValue = "1x";
+        g2d.drawString(multLabel, tx, ty);
+        valW = fm.stringWidth(multValue);
+        g2d.drawString(multValue, maxValueX - valW, ty);
+    }
+	    
     /**
      * Desenha o tabuleiro (40 casas em formato quadrado).
      */
@@ -337,8 +601,9 @@ public class BoardPanel extends JPanel {
     private void drawDice(Graphics2D g2d, int offsetX, int offsetY) {
         if (dice1 == 0 || dice2 == 0) return;
         
-        int centerX = offsetX + BOARD_SIZE / 2;
-        int centerY = offsetY + BOARD_SIZE / 2;
+    int centerX = offsetX + BOARD_SIZE / 2;
+    // Center vertically in the first (upper) half of the board
+    int centerY = offsetY + BOARD_SIZE / 4;
         
         int diceSize = 60;
         int spacing = 15;

@@ -31,6 +31,7 @@ public class GameWindow extends JFrame implements GameObserver {
     private JPanel bottomPanel;  // Referência para mostrar/ocultar
     private JLabel currentPlayerLabel;
     private JLabel diceLabel;
+    private JLabel moneyLabel;
     private boolean logVisible = true;  // Estado do log
     
     public GameWindow(GameController controller, int numberOfPlayers) {
@@ -74,6 +75,7 @@ public class GameWindow extends JFrame implements GameObserver {
         infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
         infoPanel.setBackground(Color.WHITE);
         infoPanel.setBorder(BorderFactory.createTitledBorder("Current Turn"));
+        infoPanel.setPreferredSize(new Dimension(230, 115));
 
         currentPlayerLabel = new JLabel("Player 1");
         currentPlayerLabel.setFont(new Font("Arial", Font.BOLD, 16));
@@ -83,10 +85,16 @@ public class GameWindow extends JFrame implements GameObserver {
         diceLabel.setFont(new Font("Arial", Font.PLAIN, 14));
         diceLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         
+    moneyLabel = new JLabel("Money: -");
+    moneyLabel.setFont(new Font("Arial", Font.PLAIN, 14));
+    moneyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
         infoPanel.add(Box.createVerticalStrut(10));
         infoPanel.add(currentPlayerLabel);
         infoPanel.add(Box.createVerticalStrut(10));
         infoPanel.add(diceLabel);
+    infoPanel.add(Box.createVerticalStrut(6));
+    infoPanel.add(moneyLabel);
         infoPanel.add(Box.createVerticalStrut(10));
         
         // Botões de controle
@@ -191,10 +199,34 @@ public class GameWindow extends JFrame implements GameObserver {
     // ========== Implementação de GameObserver ==========
     
     @Override
-    public void onTurnStarted(int playerIndex, String playerName) {
+    public void onTurnStarted(int playerIndex, String playerName, String playerColor, int playerMoney) {
         currentPlayerLabel.setText(playerName);
         addToLog("=== Turn of " + playerName + " ===");
         diceLabel.setText("Dice: -");
+        moneyLabel.setText("Money: $" + playerMoney);
+        // Aplica cor do jogador ao texto (identificação visual)
+        if (playerColor != null) {
+            Color c = parseColor(playerColor);
+            if (c != null) currentPlayerLabel.setForeground(c);
+        }
+    }
+
+    private Color parseColor(String colorStr) {
+        switch (colorStr.toLowerCase()) {
+            case "red": return Color.RED;
+            case "blue": return Color.BLUE;
+            case "green": return Color.GREEN;
+            case "yellow": return Color.YELLOW;
+            case "purple": return new Color(128, 0, 128);
+            case "orange": return new Color(255, 165, 0);
+            default:
+                // Try hex like #RRGGBB
+                try {
+                    return Color.decode(colorStr);
+                } catch (Exception ex) {
+                    return null;
+                }
+        }
     }
     
     @Override
@@ -212,12 +244,40 @@ public class GameWindow extends JFrame implements GameObserver {
     }
     
     @Override
-    public void onSquareLanded(int playerIndex, int squareIndex, String squareName) {
-        addToLog("Player landed on: " + squareName + " (position " + squareIndex + ")");
+    public void onSquareLanded(int playerIndex, int squareIndex, String squareName, String squareType) {
+        addToLog("Player landed on: " + squareName + " // Position: " + squareIndex + " // Type: " + squareType);
+    }
+
+    @Override
+    public void onChanceSquareLand(int playerIndex, int cardIndex) {
+        addToLog("Chance card drawn: index=" + cardIndex);
+        boardPanel.setCard(cardIndex);
+        // Refresh player's money in the UI when a chance card is drawn
+        try {
+            int money = controller.getPlayerMoney(playerIndex);
+            if (moneyLabel != null) moneyLabel.setText("Money: " + money);
+        } catch (Exception ex) {
+            addToLog("Failed to refresh money: " + ex.getMessage());
+        }
+    }
+
+    @Override
+    public void onStreetOwnableLand(int playerIndex, String propertyName) {
+        addToLog("Street ownable landed: " + propertyName + " (player=" + playerIndex + ")");
+        boardPanel.setPropertyInfo(propertyName, "street");
+    }
+
+    @Override
+    public void onCompanyOwnableLand(int playerIndex, String companyName) {
+        addToLog("Company ownable landed: " + companyName + " (player=" + playerIndex + ")");
+        boardPanel.setPropertyInfo(companyName, "company");
     }
     
     @Override
     public void onTurnEnded() {
+        boardPanel.setCard(-1);
+        boardPanel.setPropertyInfo(null, null);
+        if (moneyLabel != null) moneyLabel.setText("Money: -");
         addToLog("Turn ended.\n");
     }
     
