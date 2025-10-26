@@ -16,10 +16,10 @@ public final class PlayerColorAwt {
         switch (c) {
             case RED: return Color.RED;
             case BLUE: return Color.BLUE;
-            case GREEN: return new Color(0, 128, 0);
+            case ORANGE: return new Color(255, 165, 0);
             case YELLOW: return Color.YELLOW;
             case PURPLE: return new Color(128, 0, 128);
-            case ORANGE: return new Color(255, 165, 0);
+            case GRAY: return new Color(128, 128, 128);
             default: return Color.BLACK;
         }
     }

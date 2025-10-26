@@ -1,5 +1,5 @@
 package model.api.dto;
 
 public enum PlayerColor {
-    RED, BLUE, GREEN, YELLOW, PURPLE, ORANGE
+    RED, BLUE, ORANGE, YELLOW, PURPLE, GRAY
 }

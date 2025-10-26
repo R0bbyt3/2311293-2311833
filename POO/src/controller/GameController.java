@@ -105,12 +105,15 @@ public class GameController {
         // Sempre notifica o pouso na casa
         notifySquareLanded(playerIndex, squareIndex, squareName, squareType);
 
+        notifyGameMessage("Player landed on: " + squareName + " // Position: " + squareIndex + " // Type: " + squareType);
+
         // Açoes específicas baseadas no tipo da casa
         switch (squareType) {
             case "ChanceSquare":
                 notifyGameMessage("Drawing a chance card for " + gameAPI.getPlayerName(playerIndex));
                 int cardIdx = gameAPI.getLastDrawedCardIndex();
                 notifyChanceSquare(playerIndex, cardIdx);
+                notifyGameMessage("Chance card drawn, index: " + cardIdx);
                 break;
             case "GoToJailSquare":
                 notifyGameMessage("GoToJailSquare landed: player will be sent to jail.");
@@ -147,12 +150,14 @@ public class GameController {
     }
 
     private void notifyStreetOwnable(int playerIndex, String propertyName, Ownables.Street streetInfo) {
+        notifyGameMessage("Street ownable landed: " + propertyName + " (player=" + playerIndex + ")");
         for (GameObserver observer : observers) {
             observer.onStreetOwnableLand(playerIndex, propertyName, streetInfo);
         }
     }
 
     private void notifyCompanyOwnable(int playerIndex, String companyName, Ownables.Company companyInfo) {
+        notifyGameMessage("Company ownable landed: " + companyName + " (player=" + playerIndex + ")");
         for (GameObserver observer : observers) {
             observer.onCompanyOwnableLand(playerIndex, companyName, companyInfo);
         }
@@ -262,6 +267,7 @@ public class GameController {
             PlayerColor firstPlayerColor = gameAPI.getPlayerColor(firstPlayer);
             int firstPlayerMoney = gameAPI.getPlayerMoney(firstPlayer);
             notifyTurnStarted(firstPlayer, firstPlayerName, firstPlayerColor, firstPlayerMoney);
+                notifyGameMessage("=== Turn of " + firstPlayerName + " ===");
             notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
             
         } catch (Exception e) {
@@ -308,12 +314,16 @@ public class GameController {
             
             // Notifica sobre o lance de dados
             notifyDiceRolled(dice1, dice2, isDouble);
+
+            notifyGameMessage("Dice rolled: " + dice1 + " and " + dice2 + (isDouble ? " (DOUBLE!)" : ""));
             
             // Obtém a posição real após o movimento
             int positionAfter = gameAPI.getPlayerPosition(currentPlayer);
             
             // Notifica sobre o movimento real
             notifyPlayerMoved(currentPlayer, positionBefore, positionAfter);
+
+            notifyGameMessage("Player moved from position " + positionBefore + " to " + positionAfter);
 
             // Notifica sobre a casa em que o jogador caiu
             String squareName = gameAPI.getSquareName(positionAfter);
@@ -338,6 +348,8 @@ public class GameController {
             // Finaliza o turno e obtém o próximo jogador
             gameAPI.endTurn();
             notifyTurnEnded();
+
+            notifyGameMessage("Turn ended.");
             
             // Obtém informações do próximo jogador
             int nextPlayerIndex = gameAPI.getCurrentPlayerIndex();
@@ -475,6 +487,7 @@ public class GameController {
         }
         this.mockedDice1 = dice1;
         this.mockedDice2 = dice2;
+        notifyGameMessage("[TEST MODE] Forcing dice: " + dice1 + " and " + dice2);
     }
     
     /**
@@ -483,6 +496,7 @@ public class GameController {
     public void clearMockedDiceValues() {
         this.mockedDice1 = null;
         this.mockedDice2 = null;
+        notifyGameMessage("[TEST MODE] Cleared forced dice values");
     }
     
     /**
