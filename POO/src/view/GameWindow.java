@@ -7,14 +7,15 @@ package view;
 
 import controller.GameController;
 import controller.GameObserver;
-import model.api.dto.Ownables;
-import model.api.dto.PlayerColor;
-import view.ui.PlayerColorAwt;
-
-import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.List;
+import javax.swing.*;
+import model.api.dto.OwnableInfo;
+import model.api.dto.Ownables;
+import model.api.dto.PlayerColor;
+import view.ui.PlayerColorAwt;
 
 /**
  * Janela principal do jogo que exibe o tabuleiro e controles.
@@ -40,6 +41,8 @@ public class GameWindow extends JFrame implements GameObserver {
     // Campos para mock de dados (teste)
     private JTextField dice1Field;
     private JTextField dice2Field;
+    
+    private List<OwnableInfo> currentProps = java.util.List.of(); // Propriedades do jogador atual
     
     public GameWindow(GameController controller, int numberOfPlayers) {
         this.controller = controller;
@@ -82,8 +85,8 @@ public class GameWindow extends JFrame implements GameObserver {
         infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
         infoPanel.setBackground(Color.WHITE);
         infoPanel.setBorder(BorderFactory.createTitledBorder("Current Turn"));
-        infoPanel.setPreferredSize(new Dimension(230, 115));
-        infoPanel.setMaximumSize(new Dimension(230, 115));
+        infoPanel.setPreferredSize(new Dimension(230, 135));
+        infoPanel.setMaximumSize(new Dimension(230, 135));
 
         currentPlayerLabel = new JLabel("Player 1");
         currentPlayerLabel.setFont(new Font("Arial", Font.BOLD, 16));
@@ -104,6 +107,21 @@ public class GameWindow extends JFrame implements GameObserver {
 	    infoPanel.add(Box.createVerticalStrut(6));
 	    infoPanel.add(moneyLabel);
         infoPanel.add(Box.createVerticalStrut(10));
+
+        // Botão para ver propriedades do jogador atual
+        JButton seePropsBtn = createStyledButton("See Player Properties", new Color(180, 180, 180));
+        seePropsBtn.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                PlayerPropertiesWindow dlg = new PlayerPropertiesWindow(GameWindow.this, controller, currentProps);
+                dlg.setLocationRelativeTo(GameWindow.this);
+                dlg.setVisible(true);
+            }
+        });
+        infoPanel.add(seePropsBtn);
+        infoPanel.add(Box.createVerticalStrut(6));
+
+
         
         // Painel de Mock de Dados (para testes)
         JPanel diceTestPanel = createDiceTestPanel();
@@ -114,7 +132,8 @@ public class GameWindow extends JFrame implements GameObserver {
         buttonPanel.setBackground(new Color(245, 245, 245));
         buttonPanel.setBorder(BorderFactory.createTitledBorder("Controls"));
 
-        JButton rollButton = createStyledButton("Roll Dice", new Color(34, 139, 34));
+        // Roll button tenta rolagem via controller
+        JButton rollButton = createStyledButton("Roll Dice", new Color(180, 180, 180));
         rollButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -135,8 +154,8 @@ public class GameWindow extends JFrame implements GameObserver {
             }
         });
 
-        // Buy button (attempt purchase via controller)
-        JButton buyButton = createStyledButton("Buy", new Color(218, 165, 32));
+        // Buy button tenta compra via controller
+        JButton buyButton = createStyledButton("Buy",new Color(180, 180, 180));
         buyButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -144,8 +163,8 @@ public class GameWindow extends JFrame implements GameObserver {
             }
         });
 
-        // Build button (attempt build via controller)
-        JButton buildButton = createStyledButton("Build", new Color(205, 92, 92));
+        // Build button tenta construção via controller
+        JButton buildButton = createStyledButton("Build", new Color(180, 180, 180));
         buildButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -153,7 +172,8 @@ public class GameWindow extends JFrame implements GameObserver {
             }
         });
 
-        JButton endTurnButton = createStyledButton("End Turn", new Color(70, 130, 180));
+        // End Turn button tenta finalizar turno via controller
+        JButton endTurnButton = createStyledButton("End Turn", new Color(180, 180, 180));
         endTurnButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -161,6 +181,7 @@ public class GameWindow extends JFrame implements GameObserver {
             }
         });
         
+        // Toggle Log button mostra/oculta o log de eventos
         JButton toggleLogButton = createStyledButton("Toggle Log", new Color(180, 180, 180));
         toggleLogButton.addActionListener(new ActionListener() {
             @Override
@@ -306,6 +327,16 @@ public class GameWindow extends JFrame implements GameObserver {
             Color c = PlayerColorAwt.toColor(playerColor);
             if (c != null) currentPlayerLabel.setForeground(c);
         }
+    }
+
+    @Override
+    public void onCurrentPlayerPropertyDataUpdated(List<OwnableInfo> items) {
+        this.currentProps = (items != null) ? items : List.of();
+    }
+
+    @Override
+    public void onPropertySold(int playerIndex) {
+        handlePlayerMoneyUpdate(playerIndex);
     }
 
     @Override

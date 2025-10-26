@@ -13,6 +13,7 @@ import java.util.List;
 import model.GameAPI;
 import model.GameAPI.PlayerSpec;
 import model.GameAPI.PlayersConfig;
+import model.api.dto.OwnableInfo;
 import model.api.dto.Ownables;
 import model.api.dto.PlayerColor;
 /**
@@ -193,6 +194,20 @@ public class GameController {
         }
     }
 
+    // Notificar observers com a lista de propriedades prontas
+    private void notifyPropertyDataUpdated(List<OwnableInfo> items) {
+        for (GameObserver observer : observers) {
+            observer.onCurrentPlayerPropertyDataUpdated(items);
+        }
+    }
+
+    // Notificar observers sobre venda de propriedade
+    private void notifyPropertySold(int playerIndex) {
+        for (GameObserver observer : observers) {
+            observer.onPropertySold(playerIndex);
+        }
+    }
+
     /** Notifica observadores que o dinheiro de um jogador mudou. */
     // money notifications are now emitted via game messages or property updates
     
@@ -247,6 +262,7 @@ public class GameController {
             PlayerColor firstPlayerColor = gameAPI.getPlayerColor(firstPlayer);
             int firstPlayerMoney = gameAPI.getPlayerMoney(firstPlayer);
             notifyTurnStarted(firstPlayer, firstPlayerName, firstPlayerColor, firstPlayerMoney);
+            notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
             
         } catch (Exception e) {
             System.err.println("ERROR starting game:");
@@ -331,6 +347,7 @@ public class GameController {
 
             notifyTurnStarted(nextPlayerIndex, nextPlayerName, nextPlayerColor, nextPlayerMoney);
             notifyGameMessage("Now it's " + nextPlayerName + "'s turn");
+            notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
             
         } catch (Exception e) {
             notifyGameMessage("Error ending turn: " + e.getMessage());
@@ -392,7 +409,7 @@ public class GameController {
                 Ownables.Company companyInfo = gameAPI.getCompanyOwnableInfo(pos);
                 notifyCompanyOwnableUpdate(currentPlayer,companyInfo);
             }
-        
+            notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
             
         } catch (Exception e) {
             notifyGameMessage("Error while attempting buy: " + e.getMessage());
@@ -422,8 +439,28 @@ public class GameController {
             notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " built on " + propName);
             Ownables.Street streetInfo = gameAPI.getStreetOwnableInfo(pos);
             notifyStreetOwnableUpdate(currentPlayer, streetInfo);
+            notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
         } catch (Exception e) {
             notifyGameMessage("Error while attempting build: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // Venda acionada pela View
+    public void attemptSell(final int boardIndex) {
+        ensureGameStarted();
+        try {
+            final int currentPlayer = gameAPI.getCurrentPlayerIndex();
+            final String name = gameAPI.getSquareName(boardIndex);
+
+            gameAPI.sellAtIndex(boardIndex);
+
+            notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " sold " + name);
+            notifyPropertySold(currentPlayer);
+            notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
+
+        } catch (Exception e) {
+            notifyGameMessage("Error while attempting sell: " + e.getMessage());
             e.printStackTrace();
         }
     }

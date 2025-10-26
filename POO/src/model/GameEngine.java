@@ -193,6 +193,16 @@ final class GameEngine {
     }
 
     /* ===========================================================
+     * Vende a propriedade do indice enviado para o banco.
+     * =========================================================== */
+    void sellAtIndex(final int boardIndex) {
+        final Square sq = board.squareAt(boardIndex);
+        final OwnableSquare prop = (OwnableSquare) sq;
+        final Player player = currentPlayer();
+        economy.buybackPropertyToPlayer(prop, player);
+    }
+
+    /* ===========================================================
      * Finaliza o turno e retorna o índice do próximo jogador.
      * =========================================================== */
     int endTurn() {
@@ -200,19 +210,11 @@ final class GameEngine {
         return currentPlayerIndex;
     }
 
-    /* Retorna a lista de todos os jogadores (imutável). */
-    List<Player> allPlayers() {
-        return List.copyOf(players);
-    }
+    // ===== AUXILIARES =====
+    // ===== AUXILIARES =====
 
-    /** Retorna o índice do jogador atual (sem alterar estado). */
-    int currentPlayerIndex() { return currentPlayerIndex; }
-
-    // Utilitários
-
-    Player currentPlayer() { return players.get(currentPlayerIndex); }
-
-    DiceRoll roll() {
+    /* Retorna o resultado do dado rolado. */
+    private DiceRoll roll() {
         // Se há valores mockados, usa-os e limpa
         if (mockedDice1 != null && mockedDice2 != null) {
             this.lastRoll = new DiceRoll(mockedDice1, mockedDice2);
@@ -226,13 +228,47 @@ final class GameEngine {
         return lastRoll;
     }
 
-    public DiceRoll lastRoll() { return lastRoll; }
+    /* Retorna o resultado do último dado rolado. */
+    DiceRoll lastRoll() { return lastRoll; }
+
+    /* Retorna o jogador atual. */
+    Player currentPlayer() { return players.get(currentPlayerIndex); }
+
+    // ===== AUXILIARES API =====
+    // ===== AUXILIARES API =====
+
+    /* Retorna os DTOs das propriedades do jogador atual */
+	 List<OwnableInfo> getCurrentPlayerPropertyData() {
+	     final int[] indices = currentPlayer().getPropertiesIndex();
+	     final java.util.List<OwnableInfo> out = new java.util.ArrayList<>(indices.length);
+	
+	     for (int idx : indices) {
+	         final Square sq = board.squareAt(idx);
+	
+	         if (sq instanceof StreetOwnableSquare) {
+	             final Ownables.Street dto = getStreetOwnableInfo(idx); 
+	             if (dto != null) out.add(dto);
+	         } else if (sq instanceof CompanyOwnableSquare) {
+	             final Ownables.Company dto = getCompanyOwnableInfo(idx); 
+	             if (dto != null) out.add(dto);
+	         }
+	     }
+	
+	     return out;
+	 }
+    
+    /* Retorna a lista de todos os jogadores (imutável). */
+    List<Player> allPlayers() {
+        return List.copyOf(players);
+    }
+
+    /* Retorna o índice do jogador atual (sem alterar estado). */
+    int currentPlayerIndex() { return currentPlayerIndex; }
 
     /** Retorna os valores do último lance como um array int[3] {d1,d2,isDoubleFlag} */
     int[] lastRollValues() {
         return new int[] { lastRoll.getD1(), lastRoll.getD2(), lastRoll.isDouble() ? 1 : 0 };
     }
-
 
     /** Retorna se o jogador atual está autorizado a rolar os dados. */
     boolean isRollAllowed() {
@@ -290,10 +326,11 @@ final class GameEngine {
     return new PlayerRef(owner.getId(), owner.getColor());
     }
 
-    /** Monta o Core comum (owner + price). */
-    private OwnableInfo.Core buildOwnableCore(final Player owner, final int price) {
+    /** Monta o Core comum (owner + price + sellValue). */
+    private OwnableInfo.Core buildOwnableCore(final Player owner, final int boardIndex, final int price, final int sellValue) {
         final PlayerRef pref = toPlayerRef(owner);
-        return new OwnableInfo.Core(pref, price);
+
+        return new OwnableInfo.Core(pref, boardIndex, price, sellValue);
     }
 
     Ownables.Street getStreetOwnableInfo(final int index) {
@@ -302,7 +339,8 @@ final class GameEngine {
         final StreetOwnableSquare street = (StreetOwnableSquare) sq;
 
         // Parte comum
-        final OwnableInfo.Core core = buildOwnableCore(street.getOwner(), street.getPrice());
+        final int sellValue = economy.evaluateSellValue(street);
+        final OwnableInfo.Core core = buildOwnableCore(street.getOwner(), street.index(), street.getPrice(), sellValue);
 
         // Parte específica (rua)
         final int rent   = street.calcRent(this);
@@ -319,7 +357,8 @@ final class GameEngine {
         final CompanyOwnableSquare company = (CompanyOwnableSquare) sq;
 
         // Parte comum
-        final OwnableInfo.Core core = buildOwnableCore(company.getOwner(), company.getPrice());
+        final int sellValue = economy.evaluateSellValue(company);
+        final OwnableInfo.Core core = buildOwnableCore(company.getOwner(),  company.index(), company.getPrice(), sellValue);
 
         // Parte específica (companhia)
         final int multiplier = company.getMultiplier();

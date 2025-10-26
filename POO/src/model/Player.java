@@ -147,6 +147,17 @@ final class Player {
 
     /** Lista imutável das propriedades. */
     List<OwnableSquare> getProperties() { return Collections.unmodifiableList(properties); }
+    
+    /* Retorna os índices das propriedades pertencentes ao jogador. */
+    int[] getPropertiesIndex() {
+    	 final int size = properties.size();
+    	    final int[] indices = new int[size];
+    	    for (int i = 0; i < size; i++) {
+    	        indices[i] = properties.get(i).index();
+    	    }
+    	    return indices;
+    }
+
 
     @Override public String toString() {
         return "Player{id='%s', name='%s', money=%d, pos=%d, alive=%s}".formatted(id, name, money, position, alive);

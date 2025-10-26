@@ -5,6 +5,8 @@
 
 package controller;
 
+import java.util.List;
+import model.api.dto.OwnableInfo;
 import model.api.dto.Ownables;
 import model.api.dto.PlayerColor;
 
@@ -91,6 +93,18 @@ public interface GameObserver {
      * @param message mensagem a exibir
      */
     void onGameMessage(String message);
+
+    /**
+     * Notifica que a lista de propriedades do jogador atual foi atualizada.
+     * @param items lista atualizada de propriedades
+     */
+    void onCurrentPlayerPropertyDataUpdated(List<OwnableInfo> items);
+
+    /**
+    * Notifica que uma propriedade foi vendida.
+    * @param playerIndex índice do jogador que vendeu a propriedade
+    */
+    void onPropertySold(int playerIndex);
 
 
 }

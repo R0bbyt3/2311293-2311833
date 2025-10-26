@@ -136,20 +136,9 @@ final class EconomyService {
         // Tenta vender propriedades para cobrir o valor faltante
         final List<OwnableSquare> owned = new ArrayList<>(player.getProperties());
         for (OwnableSquare prop : owned) {
-        	
-            final int gross = prop.getTotalInvestment();
-            final int received = (int) Math.floor(gross * BANK_BUYBACK_RATE);
-            
-            // Banco recompra a propriedade
-            bank.transfer(null, player, received);
-
-            // Remove propriedade do jogador e limpa a posse
-            player.removeProperty(prop);
-            prop.removeOwner(player); 
-
+            final int received = buybackPropertyToPlayer(prop, player);
             missing -= received;
-            if (missing <= 0) return true;  
-         
+            if (missing <= 0) return true;
         }
 
         // Se ainda falta dinheiro → falência
@@ -170,7 +159,41 @@ final class EconomyService {
         player.setBankrupt();
     }
     
-    
+    /* ===========================================================
+     * Venda de propriedade do jogador para o banco.
+     * =========================================================== */
+    int buybackPropertyToPlayer(final OwnableSquare prop, final Player player) {
+        final int gross = prop.getTotalInvestment();
+        final int received = (int) Math.floor(gross * BANK_BUYBACK_RATE);
 
+        // Banco paga ao jogador (BANK -> Player)
+        bank.transfer(null, player, received);
+
+        // Remove propriedade do jogador e limpa a posse
+        player.removeProperty(prop);
+        prop.removeOwner(player);
+
+        return received;
+    }
+
+    /* ===========================================================
+     * Avalia o valor de recompra de uma propriedade pelo banco.
+     * =========================================================== */
+    int evaluateSellValue(final OwnableSquare prop) {
+        final int gross = prop.getTotalInvestment(); 
+        return (int) Math.floor(gross * BANK_BUYBACK_RATE);
+    }
+
+    /* ===========================================================
+     * Venda voluntária do jogador para o banco.
+     * =========================================================== */
+    boolean attemptSell(final Player player, final OwnableSquare prop) {
+        Objects.requireNonNull(player, "player");
+        Objects.requireNonNull(prop, "prop");
+        if (!prop.hasOwner() || prop.getOwner() != player) return false;
+
+        buybackPropertyToPlayer(prop, player);
+        return true;
+    }
 }
 

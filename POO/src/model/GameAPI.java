@@ -7,6 +7,8 @@ package model;
 
 import java.nio.file.Path;
 import java.util.*;
+
+import model.api.dto.OwnableInfo;
 import model.api.dto.Ownables;
 import model.api.dto.PlayerColor;
 
@@ -200,6 +202,18 @@ public final class GameAPI {
     public Ownables.Company getCompanyOwnableInfo(final int index) {
         ensureStarted();
         return engine.getCompanyOwnableInfo(index);
+    }
+    
+    /** Retorna os DTOs OwnableInfo (Street/Company) do jogador da vez, prontos para a View/Controller. */
+    public List<OwnableInfo> getCurrentPlayerPropertyData() {
+        ensureStarted();
+        return engine.getCurrentPlayerPropertyData();
+    }
+    
+    /** Vende a propriedade indicada (índice do board) do jogador da vez para o banco. */
+    public void sellAtIndex(final int boardIndex) {
+        ensureStarted();
+        engine.sellAtIndex(boardIndex);
     }
     
     /**

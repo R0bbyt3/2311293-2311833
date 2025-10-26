@@ -47,5 +47,5 @@ final class Board {
     int jailIndex() { return jailIndex; }
 
     /* Tamanho do tabuleiro. */
-    int size() { return size; }
+    int size() { return size; }    
 }
