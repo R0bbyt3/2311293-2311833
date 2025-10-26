@@ -127,7 +127,7 @@ public class EconomyServiceTest {
     @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldLiquidateAssetsToPayRent() {
         // p1 com pouco dinheiro, mas com um bem para liquidar
-        Player poor = new Player("pPoor", "Carol", GREEN, 500);
+        Player poor = new Player("pPoor", "Carol", GRAY, 500);
         poor.debit(495); // fica com 5
 
         // bem do p1 a ser liquidado (não precisa estar no tabuleiro)
@@ -194,7 +194,7 @@ public class EconomyServiceTest {
     @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldGoBankruptWhenUnableToPayRent() {
         // Poor player with low cash and some assets, but liquidation is insufficient
-        Player poor = new Player("pPoor", "Carol", GREEN, 5);
+        Player poor = new Player("pPoor", "Carol", GRAY, 5);
 
         // Two low-value assets (buildCost small → liquidation small)
         int[] rents = new int[] {0, 10, 20, 30, 40, 50};

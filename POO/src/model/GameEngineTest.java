@@ -183,7 +183,7 @@ public class GameEngineTest {
         int[] rents = new int[] {0, 10, 20, 30, 40, 50};
         StreetOwnableSquare rentProp = new StreetOwnableSquare(0, "Rua 0", "R0", 200, rents, 100);
 
-        Player poor = new Player("pPoor", "Carol", GREEN, 0);
+        Player poor = new Player("pPoor", "Carol", GRAY, 0);
         Player owner = new Player("pOwner", "Dave", YELLOW, 500);
         Player third = new Player("pThird", "Eve", PURPLE, 500);
 
