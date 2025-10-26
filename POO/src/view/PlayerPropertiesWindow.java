@@ -11,7 +11,7 @@ import model.api.dto.Ownables;
 public final class PlayerPropertiesWindow extends JDialog {
 
     private final GameController controller;
-    private List<OwnableInfo> items; // segue recebendo exatamente o mesmo tipo
+    private List<OwnableInfo> items; 
     private final JPanel listPanel;
 
     public PlayerPropertiesWindow(Frame owner, GameController controller, List<OwnableInfo> items) {
@@ -20,7 +20,7 @@ public final class PlayerPropertiesWindow extends JDialog {
         this.items = (items != null) ? items : List.of();
 
         setDefaultCloseOperation(DISPOSE_ON_CLOSE);
-        setSize(560, 640);
+        setSize(300, 640);
         setLocationRelativeTo(owner);
         setLayout(new BorderLayout(0, 0));
 
@@ -32,11 +32,10 @@ public final class PlayerPropertiesWindow extends JDialog {
         scroll.setBorder(null);
         add(scroll, BorderLayout.CENTER);
 
-        // Sem botão Close no rodapé — fecha no “X” da janela
         reloadList();
     }
 
-    /** Atualiza os itens e redesenha; mantém assinatura de atualização pública. */
+    /** Atualiza os itens e redesenha */
     public void updateItems(List<OwnableInfo> newItems) {
         this.items = (newItems != null) ? newItems : List.of();
         if (SwingUtilities.isEventDispatchThread()) {
@@ -138,18 +137,18 @@ public final class PlayerPropertiesWindow extends JDialog {
         }
 
         card.add(body, BorderLayout.CENTER);
-
+        
         // Ações (lado direito)
-        JButton sell = new JButton("Sell ($" + core.propertySellValue() + ")");
-        sell.setFocusPainted(false);
-        sell.addActionListener(e -> {
+        JButton sellButton = new JButton("Sell ($" + core.propertySellValue() + ")");
+        sellButton.setFocusPainted(false);
+
+        sellButton.addActionListener(e -> {
             controller.attemptSell(core.boardIndex());
             dispose(); // Fecha após vender
         });
-
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         actions.setOpaque(false);
-        actions.add(sell);
+        actions.add(sellButton);
 
         card.add(actions, BorderLayout.EAST);
 

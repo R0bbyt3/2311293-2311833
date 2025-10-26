@@ -144,7 +144,6 @@ public class GameWindow extends JFrame implements GameObserver {
                 if (d1 != null && d2 != null) {
                     // Modo de teste: força valores específicos
                     controller.setMockedDiceValues(d1, d2);
-                    addToLog("[TEST MODE] Forcing dice: " + d1 + " and " + d2);
                 } else {
                     // Modo normal: valores aleatórios
                     controller.clearMockedDiceValues();
@@ -319,7 +318,6 @@ public class GameWindow extends JFrame implements GameObserver {
     @Override
     public void onTurnStarted(int playerIndex, String playerName, PlayerColor playerColor, int playerMoney) {
         currentPlayerLabel.setText(playerName);
-        addToLog("=== Turn of " + playerName + " ===");
         diceLabel.setText("Dice: -");
         moneyLabel.setText("Money: $" + playerMoney);
         // Cor do jogador
@@ -343,38 +341,32 @@ public class GameWindow extends JFrame implements GameObserver {
     public void onDiceRolled(int dice1, int dice2, boolean isDouble) {
         String doubleText = isDouble ? " (DOUBLE!)" : "";
         diceLabel.setText("Dice: " + dice1 + " + " + dice2 + doubleText);
-        addToLog("Dice rolled: " + dice1 + " and " + dice2 + doubleText);
         boardPanel.setDiceValues(dice1, dice2);
     }
     
     @Override
     public void onPlayerMoved(int playerIndex, int fromPosition, int toPosition) {
-        addToLog("Player moved from position " + fromPosition + " to " + toPosition);
         boardPanel.movePlayer(playerIndex, toPosition);
     }
     
     @Override
     public void onSquareLanded(int playerIndex, int squareIndex, String squareName, String squareType) {
-        addToLog("Player landed on: " + squareName + " // Position: " + squareIndex + " // Type: " + squareType);
     }
 
     @Override
     public void onChanceSquareLand(int playerIndex, int cardIndex) {
-        addToLog("Chance card drawn: index=" + cardIndex);
         boardPanel.setCard(cardIndex);
         handlePlayerMoneyUpdate(playerIndex);
     }
 
     @Override
     public void onStreetOwnableLand(int playerIndex, String propertyName, Ownables.Street streetInfo) {
-        addToLog("Street ownable landed: " + propertyName + " (player=" + playerIndex + ")");
         boardPanel.setPropertyInfo(propertyName, "street");
         boardPanel.setStreetInfo(streetInfo);
     }
 
     @Override
     public void onCompanyOwnableLand(int playerIndex, String companyName, Ownables.Company companyInfo) {
-        addToLog("Company ownable landed: " + companyName + " (player=" + playerIndex + ")");
         boardPanel.setPropertyInfo(companyName, "company");
         boardPanel.setCompanyInfo(companyInfo);
     }
@@ -404,7 +396,6 @@ public class GameWindow extends JFrame implements GameObserver {
         boardPanel.setCard(-1);
         boardPanel.setPropertyInfo(null, null);
         if (moneyLabel != null) moneyLabel.setText("Money: $-");
-        addToLog("Turn ended.\n");
     }
     
     @Override
