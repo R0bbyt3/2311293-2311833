@@ -41,7 +41,12 @@ public final class PlayerPropertiesWindow extends JDialog {
         if (SwingUtilities.isEventDispatchThread()) {
             reloadList();
         } else {
-            SwingUtilities.invokeLater(this::reloadList);
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    reloadList();
+                }
+            });
         }
     }
 
@@ -142,9 +147,12 @@ public final class PlayerPropertiesWindow extends JDialog {
         JButton sellButton = new JButton("Sell ($" + core.propertySellValue() + ")");
         sellButton.setFocusPainted(false);
 
-        sellButton.addActionListener(e -> {
-            controller.attemptSell(core.boardIndex());
-            dispose(); // Fecha após vender
+        sellButton.addActionListener(new java.awt.event.ActionListener() {
+            @Override
+            public void actionPerformed(java.awt.event.ActionEvent e) {
+                controller.attemptSell(core.boardIndex());
+                dispose(); // Fecha após vender
+            }
         });
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         actions.setOpaque(false);

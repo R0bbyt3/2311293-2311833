@@ -180,8 +180,7 @@ public class GameEngineTest {
 
     @Test(timeout = DEFAULT_TIMEOUT)
     public void shouldSkipBankruptPlayerInTurnOrder() {
-        int[] rents = new int[] {0, 10, 20, 30, 40, 50};
-        StreetOwnableSquare rentProp = new StreetOwnableSquare(0, "Rua 0", "R0", 200, rents, 100);
+        StreetOwnableSquare rentProp = new StreetOwnableSquare(0, "Rua 0", "R0", 200);
 
         Player poor = new Player("pPoor", "Carol", GRAY, 0);
         Player owner = new Player("pOwner", "Dave", YELLOW, 500);
@@ -189,7 +188,9 @@ public class GameEngineTest {
 
         rentProp.setOwner(owner);
         owner.addProperty(rentProp);
-        for (int i = 0; i < 5; i++) rentProp.buildOne();
+        // construir 4 casas e depois hotel
+        for (int i = 0; i < 4; i++) rentProp.buildHouse();
+        rentProp.buildHotel();
 
         Board board = makeBoardWithPropertyAt0(rentProp, BOARD_SIZE, 3);
         List<Player> ps = Arrays.asList(poor, owner, third);

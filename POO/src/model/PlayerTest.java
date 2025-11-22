@@ -31,8 +31,7 @@ public class PlayerTest {
 	@Test(timeout = DEFAULT_TIMEOUT)
 	public void testPropertyManagement() {
 		Player p = new Player("p1", "Alice", RED, 100);
-		int[] rents = new int[] {0,10,20,30,40,50};
-		StreetOwnableSquare s = new StreetOwnableSquare(0, "Rua 0", "R0", 200, rents, 100);
+		StreetOwnableSquare s = new StreetOwnableSquare(0, "Rua 0", "R0", 200);
 		s.setOwner(p);
 		p.addProperty(s);
 		assertTrue("propriedade deve constar na lista do jogador", p.getProperties().contains(s));

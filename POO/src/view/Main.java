@@ -23,13 +23,16 @@ public class Main {
         }
         
         // Inicia a aplicação na Event Dispatch Thread
-        SwingUtilities.invokeLater(() -> {
-            // Cria o controller
-            GameController controller = new GameController();
-            
-            // Abre a janela inicial
-            InitialWindow initialWindow = new InitialWindow(controller);
-            initialWindow.setVisible(true);
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                // Cria o controller
+                GameController controller = new GameController();
+
+                // Abre a janela inicial
+                InitialWindow initialWindow = new InitialWindow(controller);
+                initialWindow.setVisible(true);
+            }
         });
     }
 }

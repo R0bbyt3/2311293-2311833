@@ -36,9 +36,6 @@ final class CompanyOwnableSquare extends OwnableSquare {
     
     @Override
     int calcRent(final GameEngine engine) {
-        final Player owner = getOwner();
-        if (owner == null) return 0;
-
         final int lastSum = (engine != null && engine.lastRoll() != null)
                 ? engine.lastRoll().getSum()
                 : 0;
@@ -47,12 +44,11 @@ final class CompanyOwnableSquare extends OwnableSquare {
 
     @Override
     void onLand(final Player player, final GameEngine engine, final EconomyService economy) {
-        if (!hasOwner()) {
-            return; // Companhia disponível para compra
+        if (!hasOwner() || getOwner() == player) {
+            return; // Não cobrar aluguel
         }
-        if (getOwner() == player) {
-            return; // Caiu na própria companhia
-        }
-        economy.chargeRent(player, this, engine);
+
+        final int rent = calcRent(engine);
+        economy.chargeRent(player, getOwner(), rent);
     }
 }

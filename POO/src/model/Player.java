@@ -107,7 +107,7 @@ final class Player {
     boolean isBankrupt() { return !alive; }
 
     /** Marca jogador como falido (fora do jogo). */
-    void setBankrupt() { this.alive = false; }
+    void setBankrupt() { this.alive = false; this.money = 0;}
 
     /** Está ativo no jogo? */
     boolean isAlive() { return alive; }

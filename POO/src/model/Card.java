@@ -41,31 +41,40 @@ final class Card {
         Objects.requireNonNull(economy);
 
         switch (type) {
-            case PAY_BANK -> {
+            case PAY_BANK: {
                 economy.applyPayment(player, value);
+                break;
             }
-            case RECEIVE_BANK -> {
+            case RECEIVE_BANK: {
                 economy.applyIncome(player, value);
+                break;
             }
-            case PAY_ALL -> {
+            case PAY_ALL: {
                 for (Player other : engine.allPlayers()) {
                     if (other != player && other.isAlive()) {
                         economy.transfer(player, other, value);
                     }
                 }
+                break;
             }
-            case RECEIVE_ALL -> {
+            case RECEIVE_ALL: {
                 for (Player other : engine.allPlayers()) {
                     if (other != player && other.isAlive()) {
                         economy.transfer(other, player, value);
                     }
                 }
+                break;
             }
-            case GO_TO_JAIL -> {
+            case GO_TO_JAIL: {
                 engine.sendToJail(player);
+                break;
             }
-            case GET_OUT_OF_JAIL -> {
+            case GET_OUT_OF_JAIL: {
                 player.grantGetOutOfJailCard();
+                break;
+            }
+            default: {
+                break;
             }
         }
     }

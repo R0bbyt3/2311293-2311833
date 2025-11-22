@@ -18,9 +18,8 @@ public class StreetOwnableSquareTest {
         @Override void onLand(Player player, GameEngine engine, EconomyService economy) { /* no-op */ }
     }
 
-    private StreetOwnableSquare makeStreet(int index, int price, int buildCost) {
-        int[] rents = new int[] {0, 10, 20, 30, 40, 50};
-        return new StreetOwnableSquare(index, "Rua " + index, "R" + index, price, rents, buildCost);
+    private StreetOwnableSquare makeStreet(int index, int price) {
+        return new StreetOwnableSquare(index, "Rua " + index, "R" + index, price);
     }
 
     private Board makeBoardWithPropertyAt0(StreetOwnableSquare prop) {
@@ -53,7 +52,7 @@ public class StreetOwnableSquareTest {
 
     @Test
     public void shouldBuildWhenHasSufficientBalance() {
-        StreetOwnableSquare prop = makeStreet(0, 200, 100);
+        StreetOwnableSquare prop = makeStreet(0, 200);
         // p1 é dono da propriedade
         prop.setOwner(p1);
         p1.addProperty(prop);
@@ -61,7 +60,7 @@ public class StreetOwnableSquareTest {
         Board board = makeBoardWithPropertyAt0(prop);
         GameEngine engine = makeEngine(p1, p2, board);
 
-        boolean built = engine.chooseBuild();
+        boolean built = engine.chooseBuildHouse();
 
         assertTrue(built);
         assertEquals(400, p1.getMoney()); // 500 - 100 buildCost
@@ -71,14 +70,14 @@ public class StreetOwnableSquareTest {
 
     @Test
     public void shouldNotBuildWhenInsufficientBalance() {
-        StreetOwnableSquare prop = makeStreet(0, 200, 600); // custo > saldo p1 (500)
+        StreetOwnableSquare prop = makeStreet(0, 1200); // preço alto -> casa custa 600 (>500)
         prop.setOwner(p1);
         p1.addProperty(prop);
 
         Board board = makeBoardWithPropertyAt0(prop);
         GameEngine engine = makeEngine(p1, p2, board);
 
-        boolean built = engine.chooseBuild();
+        boolean built = engine.chooseBuildHouse();
 
         assertFalse(built);
         assertEquals(500, p1.getMoney()); // saldo inalterado
@@ -88,14 +87,14 @@ public class StreetOwnableSquareTest {
 
     @Test
     public void shouldNotBuildOnOthersProperty() {
-        StreetOwnableSquare prop = makeStreet(0, 200, 100);
+        StreetOwnableSquare prop = makeStreet(0, 200);
         prop.setOwner(p2);
         p2.addProperty(prop);
 
         Board board = makeBoardWithPropertyAt0(prop);
         GameEngine engine = makeEngine(p1, p2, board);
 
-        boolean built = engine.chooseBuild();
+        boolean built = engine.chooseBuildHouse();
 
         assertFalse(built);
         assertEquals(500, p1.getMoney());
@@ -107,7 +106,7 @@ public class StreetOwnableSquareTest {
     public void shouldReachMaxHousesAndHotelAndThenBlock() {
         // p1 com saldo alto para várias construções
         p1 = new Player("p1", "Alice", RED, 2000);
-        StreetOwnableSquare prop = makeStreet(0, 200, 100);
+        StreetOwnableSquare prop = makeStreet(0, 200);
         prop.setOwner(p1);
         p1.addProperty(prop);
 
@@ -116,22 +115,23 @@ public class StreetOwnableSquareTest {
 
         // Construir 4 casas
         for (int i = 1; i <= 4; i++) {
-            assertTrue("Construção " + i + " deve ser permitida", engine.chooseBuild());
+            assertTrue("Construção " + i + " deve ser permitida", engine.chooseBuildHouse());
             assertEquals(i, prop.getHouses());
             assertFalse(prop.hasHotel());
         }
         assertEquals(2000 - 4 * 100, p1.getMoney());
 
-        // 5ª construção vira hotel
-        assertTrue(engine.chooseBuild());
+        // Construir hotel (separado)
+        assertTrue(engine.chooseBuildHotel());
         assertEquals(4, prop.getHouses());
         assertTrue(prop.hasHotel());
-        assertEquals(2000 - 5 * 100, p1.getMoney());
+        // hotel custa 100% do preço = 200
+        assertEquals(2000 - 4 * 100 - 200, p1.getMoney());
 
-        // 6ª tentativa não deve ser permitida
-        assertFalse(engine.chooseBuild());
+        // Tentativas adicionais não devem ser permitidas
+        assertFalse(engine.chooseBuildHouse());
+        assertFalse(engine.chooseBuildHotel());
         assertEquals(4, prop.getHouses());
         assertTrue(prop.hasHotel());
-        assertEquals(2000 - 5 * 100, p1.getMoney());
     }
 }

@@ -31,8 +31,8 @@ public class GameController {
     private Integer mockedDice2;
     
     // Configurações padrão
-    private static final int INITIAL_PLAYER_MONEY = 1500;
-    private static final int INITIAL_BANK_CASH = 100000;
+    private static final int INITIAL_PLAYER_MONEY = 4000;
+    private static final int INITIAL_BANK_CASH = 200000;
     private static final String BOARD_CSV = "assets/dados/board.csv";
     private static final String DECK_CSV = "assets/dados/deck.csv";
     
@@ -189,6 +189,29 @@ public class GameController {
             observer.onGameMessage(message);
         }
     }
+
+    /** Notifica sobre transações para todos os observers. */
+    private void notifyTransactions(java.util.List<model.api.dto.Transaction> transactions) {
+        if (transactions == null || transactions.isEmpty()) return;
+        // Emite cada transação no log (controller usa onGameMessage para histórico)
+        for (model.api.dto.Transaction t : transactions) {
+            String from = t.fromId;
+            String to = t.toId;
+            // mensagem legível
+            String msg = String.format("%s -> %s : %s%d | balances: %s=%d, %s=%d",
+                    from, to,
+                    (from.equals("BANK") ? "+" : ""), t.amount,
+                    from, t.fromBalanceAfter,
+                    to, t.toBalanceAfter
+            );
+            notifyGameMessage(msg);
+        }
+
+        // Notifica observers com objetos para UI (BoardPanel)
+        for (GameObserver observer : observers) {
+            observer.onTransactionsUpdated(transactions);
+        }
+    }
     
     /**
      * Notifica todos os observadores sobre o fim do turno.
@@ -199,22 +222,37 @@ public class GameController {
         }
     }
 
-    // Notificar observers com a lista de propriedades prontas
+    /**
+     * Notifica observadores para limpar transações (lista vazia).
+     */
+    private void notifyClearTransactions() {
+        java.util.List<model.api.dto.Transaction> empty = java.util.List.of();
+        for (GameObserver observer : observers) {
+            observer.onTransactionsUpdated(empty);
+        }
+    }
+
+    /** Notifica observadores que um jogador faliu e deve ser removido/ocultado da UI. */
+    private void notifyPlayerBankrupt(int playerIndex) {
+        for (GameObserver observer : observers) {
+            observer.onPlayerBankrupt(playerIndex);
+        }
+    }
+    
+
+    /** Notificar observers com a lista de propriedades prontas */
     private void notifyPropertyDataUpdated(List<OwnableInfo> items) {
         for (GameObserver observer : observers) {
             observer.onCurrentPlayerPropertyDataUpdated(items);
         }
     }
 
-    // Notificar observers sobre venda de propriedade
+    /** Notificar observers sobre venda de propriedade */
     private void notifyPropertySold(int playerIndex) {
         for (GameObserver observer : observers) {
             observer.onPropertySold(playerIndex);
         }
     }
-
-    /** Notifica observadores que o dinheiro de um jogador mudou. */
-    // money notifications are now emitted via game messages or property updates
     
     /**
      * Inicia um novo jogo com o número especificado de jogadores.
@@ -244,9 +282,6 @@ public class GameController {
         Path deckPath = Paths.get(DECK_CSV);
         
         try {
-            System.out.println("DEBUG: Starting game with " + numberOfPlayers + " players");
-            System.out.println("DEBUG: Board CSV: " + boardPath.toAbsolutePath());
-            System.out.println("DEBUG: Deck CSV: " + deckPath.toAbsolutePath());
             
             // Inicia o jogo através da API
             gameAPI.startGame(config, boardPath, deckPath, INITIAL_PLAYER_MONEY, INITIAL_BANK_CASH);
@@ -259,7 +294,6 @@ public class GameController {
             }
             
             notifyGameMessage("Game started with " + numberOfPlayers + " players!");
-            System.out.println("DEBUG: Initial player positions notified");
             
             // Notifica o primeiro jogador (inclui cor)
             int firstPlayer = gameAPI.getCurrentPlayerIndex();
@@ -328,9 +362,19 @@ public class GameController {
             // Notifica sobre a casa em que o jogador caiu
             String squareName = gameAPI.getSquareName(positionAfter);
             String squareType = gameAPI.getSquareType(positionAfter);
-            // Use helper to notify observers and perform type-specific actions
+            
+            // Usa a função auxiliar para notificar e tratar efeitos
             callSquareNotification(currentPlayer, positionAfter, squareName, squareType);
 
+            // Coleta transações ocorridas durante a jogada e as notifica
+            var transactions = gameAPI.fetchAndClearTransactions();
+            notifyTransactions(transactions);
+
+            // Após a jogada (roll & resolve), verifique se o jogador que rolou faliu.
+            if (!gameAPI.isPlayerAlive(currentPlayer)) {
+                notifyGameMessage("PLAYER BANKRUPTCY: " + gameAPI.getPlayerName(currentPlayer) + " has gone bankrupt!");
+                notifyPlayerBankrupt(currentPlayer);
+            }
 
         } catch (Exception e) {
             notifyGameMessage("Error during turn: " + e.getMessage());
@@ -348,6 +392,8 @@ public class GameController {
             // Finaliza o turno e obtém o próximo jogador
             gameAPI.endTurn();
             notifyTurnEnded();
+            // Limpa transações visuais ao fim do turno
+            notifyClearTransactions();
 
             notifyGameMessage("Turn ended.");
             
@@ -360,18 +406,29 @@ public class GameController {
             notifyTurnStarted(nextPlayerIndex, nextPlayerName, nextPlayerColor, nextPlayerMoney);
             notifyGameMessage("Now it's " + nextPlayerName + "'s turn");
             notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
+            // Coleta transações geradas pela compra e notifica
+            var transactions = gameAPI.fetchAndClearTransactions();
+            notifyTransactions(transactions);
             
         } catch (Exception e) {
             notifyGameMessage("Error ending turn: " + e.getMessage());
             e.printStackTrace();
         }
     }
-    
     /**
      * Verifica se o jogo já foi iniciado.
      */
     public boolean isGameStarted() {
         return gameStarted;
+    }
+
+    /**
+     * Retorna a lista de vencedores da partida (PlayerRef).
+     * Se o jogo não foi iniciado, retorna lista vazia.
+     */
+    public java.util.List<model.api.dto.PlayerRef> getWinners() {
+        if (!gameStarted) return java.util.List.of();
+        return gameAPI.getWinners();
     }
 
     /**
@@ -413,15 +470,19 @@ public class GameController {
             notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " bought " + propName);
 
             String squareType = gameAPI.getSquareType(pos);
-            // If it is a street ownable, notify an update (purchase) to the view without the "land" debug.
-            if (squareType != null && squareType.equals("StreetOwnableSquare")) {
+
+            // Se for uma propriedade comprada, notifica a atualização adequada
+            if (squareType.equals("StreetOwnableSquare")) {
                 Ownables.Street streetInfo = gameAPI.getStreetOwnableInfo(pos);
                 notifyStreetOwnableUpdate(currentPlayer, streetInfo);
             } else {
                 Ownables.Company companyInfo = gameAPI.getCompanyOwnableInfo(pos);
-                notifyCompanyOwnableUpdate(currentPlayer,companyInfo);
+                notifyCompanyOwnableUpdate(currentPlayer, companyInfo);
             }
             notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
+            // Coleta transações geradas pela construção e notifica
+            var transactions = gameAPI.fetchAndClearTransactions();
+            notifyTransactions(transactions);
             
         } catch (Exception e) {
             notifyGameMessage("Error while attempting buy: " + e.getMessage());
@@ -430,30 +491,65 @@ public class GameController {
     }
 
     /**
-     * Tenta construir (uma casa) na propriedade atual. 
+     * Tenta construir uma casa na propriedade atual. 
      * Emite debug se não for possível.
      */
-    public void attemptBuild() {
+    public void attemptBuildHouse() {
         ensureGameStarted();
 
         try {
             final int currentPlayer = gameAPI.getCurrentPlayerIndex();
 
-            if (!gameAPI.chooseBuild()) {
-                String reason = gameAPI.getBuildNotAllowedReason();
+            if (!gameAPI.chooseBuildHouse()) {
+                String reason = gameAPI.getBuildHouseNotAllowedReason();
                 if (reason == null) reason = "Unknown reason";
-                notifyGameMessage("Build blocked: " + reason);
+                notifyGameMessage("Build House blocked: " + reason);
                 return;
             }
 
             int pos = gameAPI.getPlayerPosition(currentPlayer);
             String propName = gameAPI.getSquareName(pos);
-            notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " built on " + propName);
+            notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " built a house on " + propName);
             Ownables.Street streetInfo = gameAPI.getStreetOwnableInfo(pos);
             notifyStreetOwnableUpdate(currentPlayer, streetInfo);
             notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
+            // Coleta transações geradas pela construção e notifica
+            var transactions = gameAPI.fetchAndClearTransactions();
+            notifyTransactions(transactions);
         } catch (Exception e) {
-            notifyGameMessage("Error while attempting build: " + e.getMessage());
+            notifyGameMessage("Error while attempting to build house: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Tenta construir um hotel na propriedade atual. 
+     * Emite debug se não for possível.
+     */
+    public void attemptBuildHotel() {
+        ensureGameStarted();
+
+        try {
+            final int currentPlayer = gameAPI.getCurrentPlayerIndex();
+
+            if (!gameAPI.chooseBuildHotel()) {
+                String reason = gameAPI.getBuildHotelNotAllowedReason();
+                if (reason == null) reason = "Unknown reason";
+                notifyGameMessage("Build Hotel blocked: " + reason);
+                return;
+            }
+
+            int pos = gameAPI.getPlayerPosition(currentPlayer);
+            String propName = gameAPI.getSquareName(pos);
+            notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " built a hotel on " + propName);
+            Ownables.Street streetInfo = gameAPI.getStreetOwnableInfo(pos);
+            notifyStreetOwnableUpdate(currentPlayer, streetInfo);
+            notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
+            // Coleta transações geradas pela construção e notifica
+            var transactions = gameAPI.fetchAndClearTransactions();
+            notifyTransactions(transactions);
+        } catch (Exception e) {
+            notifyGameMessage("Error while attempting to build hotel: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -469,7 +565,23 @@ public class GameController {
 
             notifyGameMessage(gameAPI.getPlayerName(currentPlayer) + " sold " + name);
             notifyPropertySold(currentPlayer);
+
+            // Se for uma propriedade vendida, notifica a atualização adequada
+            int pos = boardIndex;
+            String squareType = gameAPI.getSquareType(pos);
+
+            if (squareType.equals("StreetOwnableSquare")) {
+                Ownables.Street streetInfo = gameAPI.getStreetOwnableInfo(pos);
+                notifyStreetOwnableUpdate(currentPlayer, streetInfo);
+            } else {
+                Ownables.Company companyInfo = gameAPI.getCompanyOwnableInfo(pos);
+                notifyCompanyOwnableUpdate(currentPlayer, companyInfo);
+            }
+
             notifyPropertyDataUpdated(gameAPI.getCurrentPlayerPropertyData());
+            // Coleta transações pendentes e notifica
+            var transactions = gameAPI.fetchAndClearTransactions();
+            notifyTransactions(transactions);
 
         } catch (Exception e) {
             notifyGameMessage("Error while attempting sell: " + e.getMessage());
@@ -496,7 +608,6 @@ public class GameController {
     public void clearMockedDiceValues() {
         this.mockedDice1 = null;
         this.mockedDice2 = null;
-        notifyGameMessage("[TEST MODE] Cleared forced dice values");
     }
     
     /**

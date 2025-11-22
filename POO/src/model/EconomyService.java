@@ -13,26 +13,24 @@ final class EconomyService {
 
     private final Bank bank;
     private static final double BANK_BUYBACK_RATE = 0.90;
+    private static final int PASS_START_AMOUNT = 200;
 
     EconomyService(final Bank bank) {
         this.bank = Objects.requireNonNull(bank, "bank");
     }
 
     /* ===========================================================
-     * Aluguel: calcula e cobra do visitante para o dono.
+     * Aluguel: cobra do visitante um valor já calculado e o credita ao dono.
+     * Recebe explicitamente o dono e o valor do aluguel para evitar que
+     * o serviço precise inspecionar a propriedade inteira.
      * =========================================================== */
-    void chargeRent(final Player visitor, final OwnableSquare property, final GameEngine engine) {
+    void chargeRent(final Player visitor, final Player owner, final int rent) {
 
-        if (!property.hasOwner()) return; // sem dono = sem cobrança
-        final Player owner = property.getOwner();
-        if (owner == visitor) return;     // própria = sem cobrança
-
-        final int rent = property.calcRent(engine);
         if (rent <= 0) return;
 
         // Garante liquidez do pagador
         if (!liquidateOrBankruptIfNeeded(visitor, rent)) {
-        	 return; 
+            return;
         }
 
         // Executa a transferência Player -> Player
@@ -61,20 +59,38 @@ final class EconomyService {
     }
 
     /* ===========================================================
-     * Construção em rua do próprio jogador (1 nível).
+     * Construção de casa em rua do próprio jogador.
      * =========================================================== */
-    boolean attemptBuild(final Player player, final StreetOwnableSquare street) {
+    boolean attemptBuildHouse(final Player player, final StreetOwnableSquare street) {
     	
         if (!street.hasOwner() || street.getOwner() != player) return false;
-        if (!street.canBuild()) return false;
+        if (!street.canBuildHouse()) return false;
 
-        final int cost = street.getBuildCost();
+        final int cost = street.getHouseCost();
 
         boolean canPay = player.canAfford(cost);
         if (!canPay) return false;
         
         bank.transfer(player, null, cost);
-        street.buildOne();
+        street.buildHouse();
+        return true;
+    }
+
+    /* ===========================================================
+     * Construção de hotel em rua do próprio jogador.
+     * =========================================================== */
+    boolean attemptBuildHotel(final Player player, final StreetOwnableSquare street) {
+    	
+        if (!street.hasOwner() || street.getOwner() != player) return false;
+        if (!street.canBuildHotel()) return false;
+
+        final int cost = street.getHotelCost();
+
+        boolean canPay = player.canAfford(cost);
+        if (!canPay) return false;
+        
+        bank.transfer(player, null, cost);
+        street.buildHotel();
         return true;
     }
 
@@ -83,6 +99,7 @@ final class EconomyService {
      * =========================================================== */
     void transfer(final Player from, final Player to, final int amount) {
         if (amount <= 0) return;
+        if (from.isBankrupt()) return;
 
         // Garante liquidez do pagador
         if (!liquidateOrBankruptIfNeeded(from, amount)) {
@@ -185,6 +202,15 @@ final class EconomyService {
     }
 
     /* ===========================================================
+     * Bônus por cruzar a linha de partida: credita um valor fixo ao jogador.
+     * Método package-private para ser chamado pelo GameEngine.
+     * =========================================================== */
+    void creditPassStart(final Player player) {
+        Objects.requireNonNull(player, "player");
+        applyIncome(player, PASS_START_AMOUNT);
+    }
+
+    /* ===========================================================
      * Venda voluntária do jogador para o banco.
      * =========================================================== */
     boolean attemptSell(final Player player, final OwnableSquare prop) {
@@ -194,6 +220,13 @@ final class EconomyService {
 
         buybackPropertyToPlayer(prop, player);
         return true;
+    }
+
+    /* ===========================================================
+     * Drena (retorna e limpa) o log de transações do banco.
+     * =========================================================== */
+    java.util.List<model.api.dto.Transaction> drainTransactionLog() {
+        return bank.drainTransactions();
     }
 }
 

@@ -11,6 +11,7 @@ import java.util.*;
 import model.api.dto.OwnableInfo;
 import model.api.dto.Ownables;
 import model.api.dto.PlayerColor;
+import model.api.dto.PlayerRef;
 
 public final class GameAPI {
 
@@ -29,6 +30,7 @@ public final class GameAPI {
      * initialPlayerMoney dinheiro inicial de cada jogador
      * initialBankCash dinheiro inicial do banco
      */
+    
     public void startGame(final PlayersConfig playersConfig,
                           final Path boardCsvPath,
                           final Path deckCsvPath,
@@ -82,10 +84,16 @@ public final class GameAPI {
         return engine.chooseBuy();
     }
 
-    /** Solicita construção em propriedade do jogador. */
-    public boolean chooseBuild() {
+    /** Solicita construção de casa em propriedade do jogador. */
+    public boolean chooseBuildHouse() {
         ensureStarted();
-        return engine.chooseBuild();
+        return engine.chooseBuildHouse();
+    }
+
+    /** Solicita construção de hotel em propriedade do jogador. */
+    public boolean chooseBuildHotel() {
+        ensureStarted();
+        return engine.chooseBuildHotel();
     }
 
     /** Encerra o turno atual e passa para o próximo jogador. */
@@ -111,28 +119,24 @@ public final class GameAPI {
     /** Retorna a posição de um jogador no tabuleiro. */
     public int getPlayerPosition(int playerIndex) {
         ensureStarted();
-        validatePlayerIndex(playerIndex);
         return engine.allPlayers().get(playerIndex).getPosition();
     }
     
     /** Retorna o nome de um jogador. */
     public String getPlayerName(int playerIndex) {
         ensureStarted();
-        validatePlayerIndex(playerIndex);
         return engine.allPlayers().get(playerIndex).getName();
     }
     
     /** Retorna o saldo de um jogador. */
     public int getPlayerMoney(int playerIndex) {
         ensureStarted();
-        validatePlayerIndex(playerIndex);
         return engine.allPlayers().get(playerIndex).getMoney();
     }
     
     /** Retorna se um jogador está na prisão. */
     public boolean isPlayerInJail(int playerIndex) {
         ensureStarted();
-        validatePlayerIndex(playerIndex);
         return engine.allPlayers().get(playerIndex).isInJail();
     }
     
@@ -155,16 +159,21 @@ public final class GameAPI {
         return engine.buyNotAllowedReason();
     }
 
-    /** Retorna string com motivo pelo qual a construção não é permitida, ou null se permitida. */
-    public String getBuildNotAllowedReason() {
+    /** Retorna string com motivo pelo qual a construção de casa não é permitida, ou null se permitida. */
+    public String getBuildHouseNotAllowedReason() {
         ensureStarted();
-        return engine.buildNotAllowedReason();
+        return engine.buildHouseNotAllowedReason();
+    }
+
+    /** Retorna string com motivo pelo qual a construção de hotel não é permitida, ou null se permitida. */
+    public String getBuildHotelNotAllowedReason() {
+        ensureStarted();
+        return engine.buildHotelNotAllowedReason();
     }
 
     /** Retorna a cor (string) de um jogador. */
     public PlayerColor getPlayerColor(int playerIndex) {
         ensureStarted();
-        validatePlayerIndex(playerIndex);
         return engine.allPlayers().get(playerIndex).getColor();
     }
 
@@ -184,6 +193,12 @@ public final class GameAPI {
     public int getLastDrawedCardIndex() {
         ensureStarted();
         return engine.lastDrawedCardIndex();
+    }
+
+    /** Retorna se o jogador no índice fornecido está ativo/no jogo (não bankrupt). */
+    public boolean isPlayerAlive(final int playerIndex) {
+        ensureStarted();
+        return engine.allPlayers().get(playerIndex).isAlive();
     }
 
     /** Retorna o nome da última propriedade/companhia em que um jogador caiu (ou null). */
@@ -214,6 +229,18 @@ public final class GameAPI {
     public void sellAtIndex(final int boardIndex) {
         ensureStarted();
         engine.sellAtIndex(boardIndex);
+    }
+
+    /** Retorna e limpa as transações ocorridas desde a última leitura. */
+    public java.util.List<model.api.dto.Transaction> fetchAndClearTransactions() {
+        ensureStarted();
+        return engine.collectTransactions();
+    }
+    
+    /** Retorna a(s) referência(s) do(s) vencedor(es) da partida. */
+    public java.util.List<PlayerRef> getWinners() {
+        ensureStarted();
+        return engine.getWinners();
     }
     
     /**
@@ -250,15 +277,6 @@ public final class GameAPI {
             throw new IllegalArgumentException("Quantidade de jogadores inválida (precisa ser entre 2 e 6).");
     }
 
-    /** Valida se o índice do jogador está no intervalo válido. */
-    private void validatePlayerIndex(final int playerIndex) {
-        final int n = engine.allPlayers().size();
-        if (playerIndex < 0 || playerIndex >= n) {
-            throw new IllegalArgumentException("Índice de jogador inválido: " + playerIndex);
-        }
-    }
-
-    
     // ==== Tipos auxiliares ====
 
     /** Lista de jogadores com dados básicos. */

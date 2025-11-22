@@ -18,6 +18,7 @@ import javax.swing.*;
 import model.api.dto.Ownables;
 import model.api.dto.PlayerColor;
 import view.ui.PlayerColorAwt;
+import model.api.dto.Transaction;
 /**
  * Painel customizado que renderiza o tabuleiro do Monopoly.
  * Utiliza Graphics2D para desenhar casas, jogadores e dados.
@@ -42,6 +43,8 @@ public class BoardPanel extends JPanel {
     
     // Posições dos jogadores
     private final int[] playerPositions;
+    // Se o jogador está ativo/visível (não bankrupt). true = desenhar
+    private final boolean[] playerAlive;
     private final Color[] playerColors;
     private int numberOfPlayers = 0;  // Número real de jogadores ativos
     
@@ -61,18 +64,25 @@ public class BoardPanel extends JPanel {
     // Cache de imagens
     private Map<String, BufferedImage> imageCache;
     
+    // Última transação a ser exibida e para qual jogador (nome)
+    private Transaction lastTransaction = null;
+    private String lastTransactionForPlayer = null; // ex: "Player 1"
+
     public BoardPanel() {
         setPreferredSize(new Dimension(PANEL_WIDTH, PANEL_HEIGHT));
         setBackground(new Color(200, 230, 200)); // Verde claro
         
         // Inicializa posições dos jogadores (máximo 6)
         playerPositions = new int[6];
+        playerAlive = new boolean[6];
         // Inicializa cores dos jogadores a partir do enum PlayerColor usando o adaptador da view
         model.api.dto.PlayerColor[] pcs = model.api.dto.PlayerColor.values();
         playerColors = new Color[Math.min(pcs.length, 6)];
         for (int i = 0; i < playerColors.length; i++) {
             playerColors[i] = view.ui.PlayerColorAwt.toColor(pcs[i]);
         }
+        // Inicialmente todos os jogadores estão vivos/visíveis
+        for (int i = 0; i < playerAlive.length; i++) playerAlive[i] = true;
         
         // Inicializa cache de imagens
         imageCache = new HashMap<>();
@@ -88,7 +98,6 @@ public class BoardPanel extends JPanel {
             File boardFile = new File("src/view/assets/tabuleiro.png");
             if (boardFile.exists()) {
                 imageCache.put("board", ImageIO.read(boardFile));
-                System.out.println("Board: " + boardFile.getAbsolutePath());
             } else {
                 System.err.println("Board not found: " + boardFile.getAbsolutePath());
             }
@@ -98,7 +107,6 @@ public class BoardPanel extends JPanel {
                 File diceFile = new File("src/view/assets/dados/die_face_" + i + ".png");
                 if (diceFile.exists()) {
                     imageCache.put("dice" + i, ImageIO.read(diceFile));
-                    System.out.println("Dice " + i + " loaded");
                 }
             }
             
@@ -107,7 +115,6 @@ public class BoardPanel extends JPanel {
                 File pinFile = new File("src/view/assets/pinos/pin" + i + ".png");
                 if (pinFile.exists()) {
                     imageCache.put("pin" + i, ImageIO.read(pinFile));
-                    System.out.println("Pin " + i + " loaded");
                 }
             }
 
@@ -116,11 +123,8 @@ public class BoardPanel extends JPanel {
                 File chanceFile = new File("src/view/assets/sorteReves/chance" + i + ".png");
                 if (chanceFile.exists()) {
                     imageCache.put("chance" + i, ImageIO.read(chanceFile));
-                    System.out.println("Chance image loaded: " + "chance" + i);
                 }
             }
-
-            System.out.println("Total images loaded: " + imageCache.size());
 
         } catch (IOException e) {
             System.err.println("Error loading images: " + e.getMessage());
@@ -150,6 +154,25 @@ public class BoardPanel extends JPanel {
     public void setNumberOfPlayers(int count) {
         if (count >= 0 && count <= 6) {
             this.numberOfPlayers = count;
+            // Ajusta flags de visibilidade: ativa apenas os primeiros `count` jogadores
+            for (int i = 0; i < playerAlive.length; i++) {
+                playerAlive[i] = (i < count);
+                if (!playerAlive[i]) playerPositions[i] = -1;
+            }
+            repaint();
+        }
+    }
+
+    /**
+     * Define se o jogador deve ser desenhado no tabuleiro (true = visível).
+     */
+    public void setPlayerAlive(int playerIndex, boolean alive) {
+        if (playerIndex >= 0 && playerIndex < playerAlive.length) {
+            playerAlive[playerIndex] = alive;
+            // Se estiver morto, esconde sua peça movendo-a para -1
+            if (!alive) {
+                playerPositions[playerIndex] = -1;
+            }
             repaint();
         }
     }
@@ -160,6 +183,17 @@ public class BoardPanel extends JPanel {
     public void setDiceValues(int d1, int d2) {
         this.dice1 = d1;
         this.dice2 = d2;
+        repaint();
+    }
+
+    /**
+     * Define a transação a ser exibida no topo do painel.
+     * @param tx transação (pode ser null para limpar)
+     * @param currentPlayerName nome do jogador da vez (ex: "Player 1")
+     */
+    public void setTransaction(Transaction tx, String currentPlayerName) {
+        this.lastTransaction = tx;
+        this.lastTransactionForPlayer = currentPlayerName;
         repaint();
     }
     
@@ -204,6 +238,8 @@ public class BoardPanel extends JPanel {
         // Centraliza o tabuleiro
         int offsetX = (PANEL_WIDTH - BOARD_SIZE) / 2;
         int offsetY = (PANEL_HEIGHT - BOARD_SIZE) / 2;
+        // Desenha caixa de transação no topo (se houver)
+        drawTransactionBox(g2d, offsetX, offsetY);
         
         // Desenha o tabuleiro
         drawBoard(g2d, offsetX, offsetY);
@@ -241,6 +277,111 @@ public class BoardPanel extends JPanel {
             }
             
         }
+    }
+
+    /** Desenha a caixa de transação no topo do tabuleiro. */
+    private void drawTransactionBox(Graphics2D g2d, int offsetX, int offsetY) {
+        if (lastTransaction == null || lastTransactionForPlayer == null) return;
+
+        int boxW = BOARD_SIZE;
+        int boxH = 32; 
+        int x = offsetX;
+        int y = offsetY - boxH - 10; // um pouco acima do tabuleiro
+
+        // Fundo branco e borda
+        g2d.setColor(Color.WHITE);
+        g2d.fillRoundRect(x, y, boxW, boxH, 12, 12);
+        Stroke old = g2d.getStroke();
+        g2d.setStroke(new BasicStroke(2));
+        g2d.setColor(Color.GRAY);
+        g2d.drawRoundRect(x, y, boxW, boxH, 12, 12);
+        g2d.setStroke(old);
+
+        // Padding e áreas
+        int pad = 12;
+        int leftStart = x + pad;
+        int rightEnd = x + boxW - pad;
+
+        // Fonte única construída para caber em uma linha
+        Font nameFont = new Font("Arial", Font.BOLD, 13);
+        Font amtFont = new Font("Arial", Font.BOLD, 13);
+        Font smallFont = new Font("Arial", Font.PLAIN, 12);
+        g2d.setFont(nameFont);
+        FontMetrics fm = g2d.getFontMetrics();
+
+        // Dados
+        boolean isPayer = lastTransactionForPlayer.equals(lastTransaction.fromId);
+        String playerName = lastTransactionForPlayer;
+        java.awt.Color playerColor = (isPayer ? PlayerColorAwt.toColor(lastTransaction.fromColor) : PlayerColorAwt.toColor(lastTransaction.toColor));
+        if (playerColor == null) playerColor = Color.BLACK;
+
+        int amt = lastTransaction.amount;
+        String signedForPlayer = (isPayer ? "-" : "+") + amt + "$";
+        java.awt.Color amtColorForPlayer = isPayer ? Color.RED : new Color(0, 140, 20);
+
+        // Lado direito: contraparte
+        String counterName = lastTransaction.toId.equals(lastTransactionForPlayer) ? lastTransaction.fromId : lastTransaction.toId;
+        model.api.dto.PlayerColor counterColorEnum = counterName.equals(lastTransaction.toId) ? lastTransaction.toColor : lastTransaction.fromColor;
+        Color counterColor = (counterColorEnum == null) ? Color.BLACK : PlayerColorAwt.toColor(counterColorEnum);
+        boolean isCounterReceiver = counterName.equals(lastTransaction.toId);
+        String signedForCounter = (isCounterReceiver ? "+" : "-") + amt + "$";
+
+        // Saldos
+        int playerBalance = isPayer ? lastTransaction.fromBalanceAfter : lastTransaction.toBalanceAfter;
+        int counterBalance = counterName.equals(lastTransaction.fromId) ? lastTransaction.fromBalanceAfter : lastTransaction.toBalanceAfter;
+
+        // Compor segmentos à esquerda e desenhar em uma única linha: saldo final, nome, valor
+        int baselineY = y + (boxH / 2) + (fm.getAscent() / 2) - 2;
+
+        int cursorX = leftStart;
+
+        // Saldo do jogador (pequeno, cinza) — mostrado primeiro
+        g2d.setFont(smallFont);
+        g2d.setColor(Color.DARK_GRAY);
+        String balText = "$" + playerBalance;
+        g2d.drawString(balText, cursorX, baselineY);
+        cursorX += g2d.getFontMetrics().stringWidth(balText) + 8;
+
+        // Nome do jogador (colorido)
+        g2d.setFont(nameFont);
+        g2d.setColor(playerColor);
+        g2d.drawString(playerName, cursorX, baselineY);
+        cursorX += g2d.getFontMetrics().stringWidth(playerName) + 8;
+
+        // Valor para o jogador (colorido), mostrado por último
+        g2d.setFont(amtFont);
+        g2d.setColor(amtColorForPlayer);
+        g2d.drawString(signedForPlayer, cursorX, baselineY);
+
+        // Compor segmentos da direita e desenhar alinhado à borda direita
+        // texto direito: signedForCounter + " " + counterName + " (" + $counterBalance + ")"
+        g2d.setFont(amtFont);
+        int wAmt = g2d.getFontMetrics().stringWidth(signedForCounter);
+        g2d.setFont(nameFont);
+        int wName = g2d.getFontMetrics().stringWidth(counterName);
+        g2d.setFont(smallFont);
+        String counterBalText = " $" + counterBalance;
+        int wBal = g2d.getFontMetrics().stringWidth(counterBalText);
+
+        int totalRightW = wAmt + 6 + wName + 6 + wBal;
+        int rightCursor = rightEnd - totalRightW;
+
+        // Desenha valor (colorido)
+        g2d.setFont(amtFont);
+        g2d.setColor(isCounterReceiver ? new Color(0, 140, 20) : Color.RED);
+        g2d.drawString(signedForCounter, rightCursor, baselineY);
+        rightCursor += wAmt + 6;
+
+        // Desenha nome do contra‑partido (colorido ou preto para BANK)
+        g2d.setFont(nameFont);
+        g2d.setColor(counterColor);
+        g2d.drawString(counterName, rightCursor, baselineY);
+        rightCursor += wName + 6;
+
+        // Desenha saldo do contra‑partido (pequeno, cinza)
+        g2d.setFont(smallFont);
+        g2d.setColor(Color.DARK_GRAY);
+        g2d.drawString(counterBalText, rightCursor, baselineY);
     }
 
     /**
@@ -572,7 +713,12 @@ public class BoardPanel extends JPanel {
         final int spacing = 5;
 
         for (int i = 0; i < numberOfPlayers; i++) {
-            int idx = playerPositions[i] % TOTAL_SQUARES;
+            // Se o jogador foi marcado como não vivo/visível, pula
+            if (i < 0 || i >= playerAlive.length) continue;
+            if (!playerAlive[i]) continue;
+            int pos = playerPositions[i];
+            if (pos < 0) continue;
+            int idx = pos % TOTAL_SQUARES;
             Rectangle r = getCellRect(idx, offsetX, offsetY);
 
             // Tamanho do grid 2x3
@@ -612,7 +758,7 @@ public class BoardPanel extends JPanel {
         if (dice1 == 0 || dice2 == 0) return;
         
     int centerX = offsetX + BOARD_SIZE / 2;
-    // Center vertically in the first (upper) half of the board
+    // Centraliza verticalmente na metade superior do tabuleiro
     int centerY = offsetY + BOARD_SIZE / 4;
         
         int diceSize = 60;

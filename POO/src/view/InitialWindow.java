@@ -71,7 +71,7 @@ public class InitialWindow extends JFrame {
         
         JButton startButton = new JButton("START GAME");
         startButton.setFont(new Font("Arial", Font.BOLD, 14));
-        startButton.setBackground(new Color(34, 139, 34));
+        startButton.setBackground(new Color(180, 180, 180));
         startButton.setForeground(Color.BLACK);
         startButton.setFocusPainted(false);
         startButton.setPreferredSize(new Dimension(150, 40));
@@ -124,10 +124,13 @@ public class InitialWindow extends JFrame {
      * Método principal para testar a janela independentemente.
      */
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            GameController controller = new GameController();
-            InitialWindow window = new InitialWindow(controller);
-            window.setVisible(true);
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                GameController controller = new GameController();
+                InitialWindow window = new InitialWindow(controller);
+                window.setVisible(true);
+            }
         });
     }
 }

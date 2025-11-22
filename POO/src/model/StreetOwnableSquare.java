@@ -1,49 +1,41 @@
 /* ===========================================================
- * StreetOwnableSquare ; ruas construtíveis; aluguel fixo por nível
+ * StreetOwnableSquare ; ruas construtíveis; aluguel calculado por fórmula
  * =========================================================== */
 package model;
 
 final class StreetOwnableSquare extends OwnableSquare {
 
     private int houses;             // 0–4
-    private boolean hasHotel;       // true = 1 hotel (só pode existir se houses == 4)
-    private final int[] rentTable;  // níveis: [sem casa, 1, 2, 3, 4, hotel]
-    private final int buildCost;    // custo fixo por construção
+    private boolean hasHotel;       // true = 1 hotel (só pode existir após ter 1 casa)
     
     StreetOwnableSquare(final int index,
                         final String name,
                         final String id,
-                        final int price,
-                        final int[] rentTable,
-                        final int buildCost) {
+                        final int price) {
         super(index, name, id, price);
-        this.rentTable = expandTable(rentTable);
-        this.buildCost = Math.max(buildCost, 0);
         this.houses = 0;
         this.hasHotel = false;
     }
 
-    /** Garante tabela completa (6 níveis). */
-    private int[] expandTable(int[] rents) {
-        if (rents == null || rents.length == 0)
-            throw new IllegalArgumentException("Tabela de aluguel vazia.");
-        if (rents.length == 5) {
-            int[] full = new int[6];
-            full[0] = 0;
-            System.arraycopy(rents, 0, full, 1, 5);
-            return full;
-        }
-        if (rents.length == 6) return rents.clone();
-        throw new IllegalArgumentException("Tabela de aluguel deve ter 5 ou 6 valores.");
+    // Pode construir casa (até 4 casas). 
+    boolean canBuildHouse() {
+        return houses < 4;
     }
 
-    // Pode construir mais 1 nível (até 4 casas e 1 hotel). 
-    boolean canBuild() {
-        return !hasHotel; // hotel = máximo possível
+    // Pode construir hotel (precisa ter pelo menos 1 casa e ainda não ter hotel). 
+    boolean canBuildHotel() {
+        return houses >= 1 && !hasHotel;
     }
 
-    // Custo fixo de construção (para cada nível). 
-    int getBuildCost() { return buildCost; }
+    // Custo de construção de uma casa (50% do preço). 
+    int getHouseCost() { 
+        return (int) Math.round(getPrice() * 0.5); 
+    }
+
+    // Custo de construção do hotel (100% do preço). 
+    int getHotelCost() { 
+        return getPrice(); 
+    }
 
     // Quantas casas a rua possui (0–4). 
     int getHouses() { return houses; }
@@ -51,15 +43,16 @@ final class StreetOwnableSquare extends OwnableSquare {
     // Tem hotel? 
     boolean hasHotel() { return hasHotel; }
 
-    // Constrói 1 nível: adiciona casa ou troca 4 casas por hotel. 
-    void buildOne() {
-        if (!canBuild()) throw new IllegalStateException("Não é possível construir mais aqui.");
-        if (houses < 4) {
-            houses++;
-        } else {
-            hasHotel = true;
-            houses = 4; // mantém o valor de referência
-        }
+    // Constrói 1 casa. 
+    void buildHouse() {
+        if (!canBuildHouse()) throw new IllegalStateException("Não é possível construir mais casas aqui.");
+        houses++;
+    }
+
+    // Constrói o hotel. 
+    void buildHotel() {
+        if (!canBuildHotel()) throw new IllegalStateException("Não é possível construir hotel aqui.");
+        hasHotel = true;
     }
     
     // Remove o dono (caso seja o atual) e reseta construções. 
@@ -77,26 +70,30 @@ final class StreetOwnableSquare extends OwnableSquare {
     int getTotalInvestment() {
         if (this.getOwner() == null) return 0;
 
-        int spentOnBuilds = (hasHotel ? 5 : houses + 1) * buildCost;
+        int spentOnBuilds = houses * getHouseCost() + (hasHotel ? getHotelCost() : 0) + (this.getOwner() != null ? getPrice() : 0);
         return spentOnBuilds;
     }
 
-    // Calcula o aluguel conforme nível atual. 
+    // Calcula o aluguel conforme fórmula: Va = Vb + Vc*n + Vh
+    // Vb = valor base (10% do preço)
+    // Vc = valor por casa (15% do preço)
+    // Vh = valor do hotel (30% do preço)
     @Override
     int calcRent(final GameEngine engine) {
-        int level = hasHotel ? 5 : houses;
-
-        if (level == 0) {
-            return (this.getOwner() == null) ? 0 : rentTable[0];
-        }
-
-        return rentTable[level];
+        int price = getPrice();
+        int vb = (int) Math.round(price * 0.1);  // valor base
+        int vc = (int) Math.round(price * 0.15); // valor por casa
+        int vh = hasHotel ? (int) Math.round(price * 0.3) : 0; // valor do hotel
+        return vb + (vc * houses) + vh;
     }
 
     // Efeito ao cair na casa. 
     @Override
     void onLand(final Player player, final GameEngine engine, final EconomyService economy) {
-      	
-        economy.chargeRent(player, this, engine);
+        if (!hasOwner() || getOwner() == player) {
+            return; // Não cobrar aluguel
+        }
+        final int rent = calcRent(engine);
+        economy.chargeRent(player, getOwner(), rent);
     }
 }

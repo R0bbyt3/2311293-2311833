@@ -10,6 +10,8 @@ import controller.GameObserver;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.util.List;
 import javax.swing.*;
 import model.api.dto.OwnableInfo;
@@ -52,7 +54,7 @@ public class GameWindow extends JFrame implements GameObserver {
     
     private void initializeUI(int numberOfPlayers) {
         setTitle("Monopoly Game");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
         setSize(WINDOW_WIDTH, WINDOW_HEIGHT);
         setLocationRelativeTo(null);
         setResizable(false);
@@ -68,6 +70,14 @@ public class GameWindow extends JFrame implements GameObserver {
         // Painel lateral direito (informações, controles e log)
         JPanel sidePanel = createSidePanel();
         add(sidePanel, BorderLayout.EAST);
+
+        // Ao fechar a janela principal, mostrar a tela final (vencedores)
+        addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                showFinalWindow();
+            }
+        });
     }
     
     /**
@@ -162,12 +172,21 @@ public class GameWindow extends JFrame implements GameObserver {
             }
         });
 
-        // Build button tenta construção via controller
-        JButton buildButton = createStyledButton("Build", new Color(180, 180, 180));
-        buildButton.addActionListener(new ActionListener() {
+        // Build House button tenta construção de casa via controller
+        JButton buildHouseButton = createStyledButton("Build House", new Color(180, 180, 180));
+        buildHouseButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                controller.attemptBuild();
+                controller.attemptBuildHouse();
+            }
+        });
+
+        // Build Hotel button tenta construção de hotel via controller
+        JButton buildHotelButton = createStyledButton("Build Hotel", new Color(180, 180, 180));
+        buildHotelButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                controller.attemptBuildHotel();
             }
         });
 
@@ -191,17 +210,30 @@ public class GameWindow extends JFrame implements GameObserver {
                 repaint();
             }
         });
+
+        // Finish Game button - mostra a janela final com vencedores
+        JButton finishButton = createStyledButton("Finish Game", new Color(180, 180, 180));
+        finishButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showFinalWindow();
+            }
+        });
         
         buttonPanel.add(Box.createVerticalStrut(10));
 	    buttonPanel.add(rollButton);
 	    buttonPanel.add(Box.createVerticalStrut(10));
 	    buttonPanel.add(buyButton);
 	    buttonPanel.add(Box.createVerticalStrut(10));
-	    buttonPanel.add(buildButton);
+	    buttonPanel.add(buildHouseButton);
+	    buttonPanel.add(Box.createVerticalStrut(10));
+	    buttonPanel.add(buildHotelButton);
 	    buttonPanel.add(Box.createVerticalStrut(10));
 	    buttonPanel.add(endTurnButton);
         buttonPanel.add(Box.createVerticalStrut(10));
         buttonPanel.add(toggleLogButton);
+        buttonPanel.add(Box.createVerticalStrut(10));
+        buttonPanel.add(finishButton);
         buttonPanel.add(Box.createVerticalStrut(10));
         
         // Log de eventos (vertical)
@@ -313,6 +345,36 @@ public class GameWindow extends JFrame implements GameObserver {
         logArea.setCaretPosition(logArea.getDocument().getLength());
     }
     
+     /**
+     * Tenta fazer parse de um valor de dado do campo de texto.
+     * Retorna null se o campo estiver vazio ou inválido.
+     */
+    private Integer parseDiceValue(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return null;
+        }
+        try {
+            int value = Integer.parseInt(text.trim());
+            if (value >= 1 && value <= 6) {
+                return value;
+            }
+        } catch (NumberFormatException e) {
+            // Ignora erros de parse
+        }
+        return null;
+    }
+
+    /**
+     * Centraliza a atualização do label de dinheiro quando receber
+     */
+    private void handlePlayerMoneyUpdate(int playerIndex) {
+        int money = controller.getPlayerMoney(playerIndex);
+        if (moneyLabel != null) {
+            moneyLabel.setText("Money: $" + money);
+            moneyLabel.setForeground(Color.BLACK);
+        }
+    }
+
     // ========== Implementação de GameObserver ==========
     
     @Override
@@ -320,6 +382,7 @@ public class GameWindow extends JFrame implements GameObserver {
         currentPlayerLabel.setText(playerName);
         diceLabel.setText("Dice: -");
         moneyLabel.setText("Money: $" + playerMoney);
+        moneyLabel.setForeground(Color.BLACK);
         // Cor do jogador
         if (playerColor != null) {
             Color c = PlayerColorAwt.toColor(playerColor);
@@ -382,14 +445,6 @@ public class GameWindow extends JFrame implements GameObserver {
         boardPanel.setCompanyInfo(companyInfo);
         handlePlayerMoneyUpdate(playerIndex);
     }
-
-    /**
-     * Helper: centraliza a atualização do label de dinheiro quando receber
-     */
-    private void handlePlayerMoneyUpdate(int playerIndex) {
-        int money = controller.getPlayerMoney(playerIndex);
-        if (moneyLabel != null) moneyLabel.setText("Money: $" + money);
-    }
     
     @Override
     public void onTurnEnded() {
@@ -402,24 +457,39 @@ public class GameWindow extends JFrame implements GameObserver {
     public void onGameMessage(String message) {
         addToLog(message);
     }
-    
-    /**
-     * Tenta fazer parse de um valor de dado do campo de texto.
-     * Retorna null se o campo estiver vazio ou inválido.
-     */
-    private Integer parseDiceValue(String text) {
-        if (text == null || text.trim().isEmpty()) {
-            return null;
-        }
-        try {
-            int value = Integer.parseInt(text.trim());
-            if (value >= 1 && value <= 6) {
-                return value;
-            }
-        } catch (NumberFormatException e) {
-            // Ignora erros de parse
-        }
-        return null;
-    }
 
+    @Override
+    public void onTransactionsUpdated(java.util.List<model.api.dto.Transaction> transactions) {
+        if (transactions == null || transactions.isEmpty()) {
+            boardPanel.setTransaction(null, null);
+            return;
+        }
+
+        // Pega a primeira transação disponível para exibir
+        String current = currentPlayerLabel.getText();
+        model.api.dto.Transaction chosen = transactions.get(0);
+        boardPanel.setTransaction(chosen, current);
+    }
+    
+    @Override
+    public void onPlayerBankrupt(int playerIndex) {
+        // Mostra BANKRUPTCY em vermelho no lugar do label de dinheiro
+        if (moneyLabel != null) {
+            moneyLabel.setText("BANKRUPTCY");
+            moneyLabel.setForeground(Color.RED);
+        }
+
+        // Indica ao board para não renderizar mais este jogador
+        boardPanel.setPlayerAlive(playerIndex, false);
+    }
+    
+    /** Mostra a janela final com os vencedores e encerra a janela principal. */
+    private void showFinalWindow() {
+        java.util.List<model.api.dto.PlayerRef> winners = controller.getWinners();
+        FinalWindow fw = new FinalWindow(winners);
+        fw.setLocationRelativeTo(this);
+        fw.setVisible(true);
+        // Fecha a janela principal após abrir a final
+        this.dispose();
+    }
 }

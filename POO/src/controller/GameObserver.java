@@ -106,5 +106,16 @@ public interface GameObserver {
     */
     void onPropertySold(int playerIndex);
 
+    /**
+     * Notifica que uma ou mais transações financeiras ocorreram.
+     * A lista poderá conter múltiplas transações (ex.: pay-to-all).
+     */
+    void onTransactionsUpdated(java.util.List<model.api.dto.Transaction> transactions);
+
+    /**
+     * Notifica que um jogador faliu (foi declarado bankrupt) e deve ser removido/ocultado da UI.
+     * @param playerIndex índice do jogador que faliu
+     */
+    void onPlayerBankrupt(int playerIndex);
 
 }

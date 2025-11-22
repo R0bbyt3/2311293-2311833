@@ -7,10 +7,9 @@ package model;
 import java.util.List;
 import java.util.Objects;
 import model.api.dto.OwnableInfo;
-import model.api.dto.Ownables;
+import model.api.dto.Ownables; 
 import model.api.dto.PlayerRef;
-
-
+import model.api.dto.Transaction;
 
 final class GameEngine {
 
@@ -73,6 +72,13 @@ final class GameEngine {
 
         final int from = p.getPosition();
         final int to = board.nextPosition(from, steps);
+
+        // Se o movimento faz o jogador cruzar a linha de partida, credita o bônus antes de mover.
+        // Detectamos crossing quando from + steps >= board.size().
+        if ((from + steps) >= board.size()) {
+            economy.creditPassStart(p);
+        }
+
         p.moveTo(to);
     }
 
@@ -104,6 +110,9 @@ final class GameEngine {
         player.moveTo(board.jailIndex());
     }
     
+    // ===== CHAMADAS PELA API =====
+    // ===== CHAMADAS PELA API =====
+
     /* ===========================================================
      * Executa a jogada completa: rolar dados → aplicar prisão → mover → resolver casa.
      * =========================================================== */
@@ -133,11 +142,6 @@ final class GameEngine {
         // Resolve efeito da casa
         onLand();
     }
-    /** Retorna o índice da última carta retirada do baralho (ou -1). */
-    int lastDrawedCardIndex() { return lastDrawedCardIndex; }
-
-    /** Nome da última propriedade/companhia em que um jogador caiu (ou null). */
-    String lastLandedOwnableName() { return lastLandedOwnableName; }
 
     /* ===========================================================
      * Compra da propriedade atual (se aplicável).
@@ -161,10 +165,10 @@ final class GameEngine {
     }
 
     /* ===========================================================
-     * Construção em propriedade do jogador.
+     * Construção de casa em propriedade do jogador.
      * =========================================================== */
-    boolean chooseBuild() {
-        // Regra: apenas 1 construção/compra (casa) por jogador por turno
+    boolean chooseBuildHouse() {
+        // Regra: apenas 1 construção/compra por jogador por turno
         if (this.hasBuiltThisTurn) return false;
 
         final Player player = currentPlayer();
@@ -173,9 +177,33 @@ final class GameEngine {
         
         if (!(sq instanceof StreetOwnableSquare)) return false;
         
-        final StreetOwnableSquare property = (StreetOwnableSquare) board.squareAt(player.getPosition());
+        final StreetOwnableSquare property = (StreetOwnableSquare) sq;
 
-        final boolean built = economy.attemptBuild(player, property);
+        final boolean built = economy.attemptBuildHouse(player, property);
+
+        if (built) {
+            this.hasBuiltThisTurn = true;
+        }
+
+        return built;
+    }
+
+    /* ===========================================================
+     * Construção de hotel em propriedade do jogador.
+     * =========================================================== */
+    boolean chooseBuildHotel() {
+        // Regra: apenas 1 construção/compra por jogador por turno
+        if (this.hasBuiltThisTurn) return false;
+
+        final Player player = currentPlayer();
+        
+        final Square sq = board.squareAt(player.getPosition());
+        
+        if (!(sq instanceof StreetOwnableSquare)) return false;
+        
+        final StreetOwnableSquare property = (StreetOwnableSquare) sq;
+
+        final boolean built = economy.attemptBuildHotel(player, property);
 
         if (built) {
             this.hasBuiltThisTurn = true;
@@ -232,6 +260,12 @@ final class GameEngine {
     /* Retorna o jogador atual. */
     Player currentPlayer() { return players.get(currentPlayerIndex); }
 
+    /* Retorna o índice da última carta retirada do baralho (ou -1). */
+    int lastDrawedCardIndex() { return lastDrawedCardIndex; }
+
+    /* Nome da última propriedade/companhia em que um jogador caiu (ou null). */
+    String lastLandedOwnableName() { return lastLandedOwnableName; }
+
     // ===== AUXILIARES API =====
     // ===== AUXILIARES API =====
 
@@ -263,27 +297,46 @@ final class GameEngine {
     /* Retorna o índice do jogador atual (sem alterar estado). */
     int currentPlayerIndex() { return currentPlayerIndex; }
 
-    /** Retorna os valores do último lance como um array int[3] {d1,d2,isDoubleFlag} */
+    /* Retorna os valores do último lance como um array int[3] {d1,d2,isDoubleFlag} */
     int[] lastRollValues() {
         return new int[] { lastRoll.getD1(), lastRoll.getD2(), lastRoll.isDouble() ? 1 : 0 };
     }
 
-    /** Retorna se o jogador atual está autorizado a rolar os dados. */
+    /* Retorna se o jogador atual está autorizado a rolar os dados. */
     boolean isRollAllowed() {
         return this.lastRollerIndex != this.currentPlayerIndex;
     }
 
-    /** Retorna o nome da square no índice dado. */
+    /* Retorna o nome da square no índice dado. */
     String getSquareName(final int index) {
         return board.squareAt(index).name();
     }
-    /** Retorna o tipo (classe simples) da square no índice dado. */
+    /* Retorna o tipo (classe simples) da square no índice dado. */
     String getSquareType(final int index) {
         return board.squareAt(index).type();
     }
  
-    // ============ SUPORTE A DEBUG ============
-    // ============ SUPORTE A DEBUG ============
+    /**
+     * Retorna uma lista de PlayerRef representando o(s) vencedor(es) da partida.
+     * O critério é o maior montante de dinheiro entre os jogadores (empates permitidos).
+     */
+    java.util.List<PlayerRef> getWinners() {
+        int max = Integer.MIN_VALUE;
+        for (Player p : players) {
+            if (p.getMoney() > max) max = p.getMoney();
+        }
+        final java.util.List<PlayerRef> res = new java.util.ArrayList<>();
+        for (int i = 0; i < players.size(); i++) {
+            final Player p = players.get(i);
+            if (p.getMoney() == max) {
+                res.add(toPlayerRef(p));
+            }
+        }
+        return java.util.Collections.unmodifiableList(res);
+    }
+
+    // ============ SUPORTE A LOG ============
+    // ============ SUPORTE A LOG ============
 
     /** Retorna uma mensagem explicando por que a compra NÃO é permitida, ou null se permitida. */
     String buyNotAllowedReason() {
@@ -299,19 +352,39 @@ final class GameEngine {
         return null; // allowed
     }
 
-    /** Retorna motivo pelo qual a construção NÃO é permitida, ou null se permitida. */
-    String buildNotAllowedReason() {
+    /** Retorna motivo pelo qual a construção de casa NÃO é permitida, ou null se permitida. */
+    String buildHouseNotAllowedReason() {
+        return buildNotAllowedReasonHelper(true);
+    }
+
+    /** Retorna motivo pelo qual a construção de hotel NÃO é permitida, ou null se permitida. */
+    String buildHotelNotAllowedReason() {
+        return buildNotAllowedReasonHelper(false);
+    }
+
+    /** Helper method para validar construção (house ou hotel). */
+    private String buildNotAllowedReasonHelper(boolean isHouse) {
         final Player player = currentPlayer();
         final Square sq = board.squareAt(player.getPosition());
         if (!(sq instanceof StreetOwnableSquare)) return "Not a street (cannot build)";
         final StreetOwnableSquare street = (StreetOwnableSquare) sq;
         if (!street.hasOwner() || street.getOwner() != player) return "You don't own this property";
         if (this.hasBuiltThisTurn) return "Already built once this turn";
-        if (!street.canBuild()) return "Cannot build here (max houses/hotel)";
-        final int cost = street.getBuildCost();
-        if (!player.canAfford(cost)) {
-            final int missing = player.howMuchMissing(cost);
-            return "Insufficient funds: missing " + missing;
+        
+        if (isHouse) {
+            if (!street.canBuildHouse()) return "Cannot build more houses (max 4 houses)";
+            final int cost = street.getHouseCost();
+            if (!player.canAfford(cost)) {
+                final int missing = player.howMuchMissing(cost);
+                return "Insufficient funds: missing " + missing;
+            }
+        } else {
+            if (!street.canBuildHotel()) return "Cannot build hotel (need at least 1 house)";
+            final int cost = street.getHotelCost();
+            if (!player.canAfford(cost)) {
+                final int missing = player.howMuchMissing(cost);
+                return "Insufficient funds: missing " + missing;
+            }
         }
         return null;
     }
@@ -364,6 +437,14 @@ final class GameEngine {
         return new Ownables.Company(core, multiplier);
     }
     
+
+    /**
+     * Coleta (e limpa) as transações acumuladas na economia/banco. 
+     */
+    java.util.List<Transaction> collectTransactions() {
+        return economy.drainTransactionLog();
+    }
+
     // ============ MOCK DE DADOS (TESTES) ============
     // ============ MOCK DE DADOS (TESTES) ============
 
@@ -386,6 +467,5 @@ final class GameEngine {
         this.mockedDice1 = null;
         this.mockedDice2 = null;
     }
-
 }
 

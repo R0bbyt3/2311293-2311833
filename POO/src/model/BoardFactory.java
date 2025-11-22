@@ -9,28 +9,22 @@ import java.util.*;
 
 final class BoardFactory extends FactoryBase<Square> {
 
+    // Índice da cadeia detectado durante o parse das linhas CSV (quando houver uma linha do tipo JAIL)
+    private int jailIndex = -1;
+
     private static final List<String> EXPECTED_HEADER = List.of(
-        "index","type","name","price","rent0","rent1","rent2","rent3","rent4","hotel","multiplier","value"
+        "index","type","name","price","multiplier","value"
     );
 
     static Board fromCSV(final Path csvPath) {
         BoardFactory factory = new BoardFactory();
         List<Square> squares = factory.readCSV(csvPath, EXPECTED_HEADER);
-
-        // Identifica o índice da cadeia no tabuleiro
-        int jailIndex = -1;
-        for (int i = 0; i < squares.size(); i++) {
-            if (squares.get(i) instanceof JailSquare) {
-                jailIndex = i;
-                break;
-            }
-        }
-
-        if (jailIndex == -1) {
+        
+        if (factory.jailIndex == -1) {
             throw new IllegalStateException("Nenhuma JailSquare encontrada no tabuleiro.");
         }
-        
-        return new Board(squares, jailIndex);
+
+        return new Board(squares, factory.jailIndex);
     }
 
     @Override
@@ -39,29 +33,25 @@ final class BoardFactory extends FactoryBase<Square> {
         String type = p[1].trim().toUpperCase(Locale.ROOT);
         String name = p[2].trim();
         int price = parseInt(p[3]);
-        int[] rents = parseRentTable(p, 4, 6);
-        int multiplier = parseInt(p[10]);
-        int value = parseInt(p[11]);
+        int multiplier = parseInt(p[4]);
+        int value = parseInt(p[5]);
+
+        // Algumas casas (START, JAIL, PARKING) não possuem regra de negócio
+        if (type.equals("START") || type.equals("JAIL") || type.equals("PARKING")) {
+            // Se for JAIL, registramos o índice para o Board
+            if (type.equals("JAIL")) this.jailIndex = index;
+            return new DummySquare(index, name);
+        }
 
         return switch (type) {
-            case "START" -> new StartSquare(index, name, value);
             case "STREET" -> new StreetOwnableSquare(
-                    index, name, name.toUpperCase(), price, rents, price);
+                index, name, name.toUpperCase(), price);
             case "COMPANY" -> new CompanyOwnableSquare(
-                    index, name, name.toUpperCase(), price, multiplier);
+                index, name, name.toUpperCase(), price, multiplier);
             case "MONEY" -> new MoneySquare(index, name, value);
             case "GOTOJAIL" -> new GoToJailSquare(index, name);
             case "CHANCE" -> new ChanceSquare(index, name);
-            case "JAIL" -> new JailSquare(index, name);
-            case "PARKING" -> new FreeParkingSquare(index, name);
-		default -> throw new IllegalArgumentException("Valor inesperado ao criar quadrado de tabuleiro: " + type);
+            default -> throw new IllegalArgumentException("Valor inesperado ao criar quadrado de tabuleiro: " + type);
         };
-    }
-    
-    // Extrai tabela de aluguel (ruas)
-    protected int[] parseRentTable(String[] parts, int startIdx, int length) {
-        int[] rents = new int[length];
-        for (int i = 0; i < length; i++) rents[i] = parseInt(parts[startIdx + i]);
-        return rents;
     }
 }

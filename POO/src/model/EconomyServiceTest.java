@@ -21,9 +21,7 @@ public class EconomyServiceTest {
     }
 
     private StreetOwnableSquare makeStreet(int index, int price) {
-        // Tabela de aluguel simples (será pouco usada nestes testes)
-        int[] rents = new int[] {0, 10, 20, 30, 40, 50};
-        return new StreetOwnableSquare(index, "Rua " + index, "R" + index, price, rents, 100);
+        return new StreetOwnableSquare(index, "Rua " + index, "R" + index, price);
     }
 
     private Board makeBoardWithPropertyAt0(StreetOwnableSquare prop) {
@@ -111,7 +109,7 @@ public class EconomyServiceTest {
         // Propriedade pertence ao p2 e tem 1 casa
         rentProp.setOwner(p2);
         p2.addProperty(rentProp);
-        rentProp.buildOne();
+        rentProp.buildHouse();
 
         Board board = makeBoardWithPropertyAt0(rentProp);
         GameEngine engine = makeEngine(p1, p2, board);
@@ -119,9 +117,9 @@ public class EconomyServiceTest {
         // p1 "cai" na propriedade do p2 (está no índice 0) -> resolve efeito
         engine.onLand();
 
-        // Aluguel com 1 casa = 10        
-        assertEquals("pagador perde 10 ao cair em propriedade com 1 casa", 490, p1.getMoney());
-        assertEquals("dono recebe 10", 510, p2.getMoney());
+        // Aluguel com 1 casa (fórmula): Vb + Vc*1 = 20 + 30 = 50
+        assertEquals("pagador perde 50 ao cair em propriedade com 1 casa", 450, p1.getMoney());
+        assertEquals("dono recebe 50", 550, p2.getMoney());
     }
 
     @Test(timeout = DEFAULT_TIMEOUT)
@@ -139,7 +137,7 @@ public class EconomyServiceTest {
         StreetOwnableSquare rentProp = makeStreet(0, 200);
         rentProp.setOwner(p2);
         p2.addProperty(rentProp);
-        rentProp.buildOne();
+        rentProp.buildHouse();
 
         Board board = makeBoardWithPropertyAt0(rentProp);
         GameEngine engine = makeEngine(poor, p2, board);
@@ -147,10 +145,10 @@ public class EconomyServiceTest {
         // poor cai na propriedade do p2
         engine.onLand();
 
-        // Liquidação: asset vale 100 investido -> banco paga 90; paga aluguel 10
-        // Saldo final esperado do poor: 5 + 90 - 10 = 85
-        assertEquals("saldo final após liquidação e pagamento", 85, poor.getMoney());
-        assertEquals("dono recebe aluguel de 10", 510, p2.getMoney());
+        // Liquidação: asset vale 100 investido -> banco paga 90; paga aluguel 50
+        // Saldo final esperado do poor: 5 + 90 - 50 = 45
+        assertEquals("saldo final após liquidação e pagamento", 45, poor.getMoney());
+        assertEquals("dono recebe aluguel de 50", 550, p2.getMoney());
         // asset deve ter sido removido do patrimônio
         assertFalse(poor.getProperties().contains(asset));
         assertFalse(asset.hasHotel());
@@ -171,8 +169,8 @@ public class EconomyServiceTest {
 
         engine.onLand();
 
-        // Aluguel para 0 casas = 0 -> sem transferência
-        assertEquals("saldo do jogador não deve mudar sem casas", 500, p1.getMoney());
+        // Aluguel para 0 casas = Vb = 10% * 200 = 20
+        assertEquals("pagador perde o valor base do aluguel sem casas", 480, p1.getMoney());
         
     }
 
@@ -181,7 +179,7 @@ public class EconomyServiceTest {
         StreetOwnableSquare ownProp = makeStreet(0, 200);
         ownProp.setOwner(p1);
         p1.addProperty(ownProp);
-        ownProp.buildOne(); // mesmo com casa, não paga
+        ownProp.buildHouse(); // mesmo com casa, não paga
 
         Board board = makeBoardWithPropertyAt0(ownProp);
         GameEngine engine = makeEngine(p1, p2, board);
@@ -197,9 +195,8 @@ public class EconomyServiceTest {
         Player poor = new Player("pPoor", "Carol", GRAY, 5);
 
         // Two low-value assets (buildCost small → liquidation small)
-        int[] rents = new int[] {0, 10, 20, 30, 40, 50};
-        StreetOwnableSquare low1 = new StreetOwnableSquare(7, "Low1", "L1", 50, rents, 10); // invested=10 → liquidation=9
-        StreetOwnableSquare low2 = new StreetOwnableSquare(8, "Low2", "L2", 50, rents, 10); // invested=10 → liquidation=9
+        StreetOwnableSquare low1 = new StreetOwnableSquare(7, "Low1", "L1", 50); // invested small -> liquidation small
+        StreetOwnableSquare low2 = new StreetOwnableSquare(8, "Low2", "L2", 50); // invested small -> liquidation small
         low1.setOwner(poor); poor.addProperty(low1);
         low2.setOwner(poor); poor.addProperty(low2);
 
@@ -208,7 +205,9 @@ public class EconomyServiceTest {
         StreetOwnableSquare rentProp = makeStreet(0, 200);
         rentProp.setOwner(owner);
         owner.addProperty(rentProp);
-        for (int i = 0; i < 5; i++) rentProp.buildOne();
+        // construir 4 casas e depois hotel
+        for (int i = 0; i < 4; i++) rentProp.buildHouse();
+        rentProp.buildHotel();
 
         Board board = makeBoardWithPropertyAt0(rentProp);
         GameEngine engine = makeEngine(poor, owner, board);
